@@ -1,0 +1,1 @@
+# astro-strapi-template
