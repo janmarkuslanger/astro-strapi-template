@@ -1,0 +1,148 @@
+---
+/**
+ * Generic GDPR consent banner. Renders every service registered in
+ * `consent-services.ts` as a checkbox.
+ *
+ * Renders NOTHING when no service is registered — which is the answer to
+ * "why is there no banner?" on a site without third-party services, and the
+ * intended state in local development.
+ *
+ * "Accept all" and "Decline" carry equal visual weight. No dark patterns:
+ * declining must be exactly as easy as accepting.
+ *
+ * Visible strings stay in the audience's language (CLAUDE.md §0).
+ */
+import { CONSENT_SERVICES } from "../lib/consent-services";
+---
+
+{
+  CONSENT_SERVICES.length > 0 && (
+    <div
+      id="consent-banner"
+      class="fixed inset-x-4 bottom-4 z-50 hidden rounded-2xl bg-neutral-900 p-6 text-white shadow-xl md:left-auto md:right-6 md:max-w-[480px]"
+      role="dialog"
+      aria-label="Cookie consent"
+    >
+      <p class="mb-2 text-lg font-semibold">One quick question 🍪</p>
+      <p class="text-sm leading-relaxed text-white/90">
+        Some content and statistics run through external services. They only
+        start after your consent — revocable any time via “Cookie settings” in
+        the footer. Details in the{" "}
+        <a href="/privacy" class="underline underline-offset-2">
+          privacy policy
+        </a>
+        .
+      </p>
+
+      <ul class="mt-4 space-y-3">
+        {CONSENT_SERVICES.map((service) => (
+          <li>
+            <label class="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                name="consent-service"
+                value={service.id}
+                class="mt-1 h-5 w-5 flex-none cursor-pointer"
+              />
+              <span>
+                <span class="font-semibold">{service.label}</span>
+                <span class="block text-sm text-white/80">
+                  {service.description}
+                </span>
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+
+      <div class="mt-5 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          data-consent-accept-all
+          class="rounded-lg bg-white px-5 py-2.5 font-semibold text-neutral-900"
+        >
+          Accept all
+        </button>
+        <button
+          type="button"
+          data-consent-decline
+          class="rounded-lg border border-white/40 px-5 py-2.5 font-semibold"
+        >
+          Decline
+        </button>
+        <button
+          type="button"
+          data-consent-save
+          class="text-sm underline underline-offset-2"
+        >
+          Save selection
+        </button>
+      </div>
+    </div>
+  )
+}
+
+<script>
+  import { CONSENT_SERVICES } from "../lib/consent-services";
+  import { getChoices, saveChoices, resetConsent } from "../lib/consent";
+  import { bindAnalyticsToConsent, trackEvent } from "../lib/analytics";
+
+  // The measurement id is a build-time value from .env.production — never a
+  // gtag snippet in the markup (CLAUDE.md §7).
+  bindAnalyticsToConsent(import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? "");
+
+  const banner = document.getElementById("consent-banner");
+
+  if (banner) {
+    const boxes = () =>
+      Array.from(
+        banner.querySelectorAll<HTMLInputElement>('input[name="consent-service"]')
+      );
+
+    const show = () => {
+      const stored = getChoices() ?? {};
+      for (const box of boxes()) box.checked = stored[box.value] === true;
+      banner.classList.remove("hidden");
+    };
+    const hide = () => banner.classList.add("hidden");
+
+    const decide = (value: (id: string) => boolean) => {
+      saveChoices(
+        Object.fromEntries(CONSENT_SERVICES.map((s) => [s.id, value(s.id)]))
+      );
+      hide();
+    };
+
+    // Ask only while at least one registered service has no decision yet.
+    const stored = getChoices();
+    const undecided = CONSENT_SERVICES.some((s) => !stored || !(s.id in stored));
+    if (undecided) show();
+
+    banner
+      .querySelector("[data-consent-accept-all]")
+      ?.addEventListener("click", () => decide(() => true));
+
+    banner
+      .querySelector("[data-consent-decline]")
+      ?.addEventListener("click", () => decide(() => false));
+
+    banner.querySelector("[data-consent-save]")?.addEventListener("click", () => {
+      const checked = new Set(boxes().filter((b) => b.checked).map((b) => b.value));
+      decide((id) => checked.has(id));
+    });
+
+    // Footer "cookie settings": clear decisions and ask again.
+    document.querySelectorAll("[data-consent-settings]").forEach((el) =>
+      el.addEventListener("click", () => {
+        resetConsent();
+        show();
+      })
+    );
+  }
+
+  // Email clicks are a conversion path worth measuring. A no-op without consent.
+  document.addEventListener("click", (event) => {
+    const link = (event.target as Element | null)?.closest?.('a[href^="mailto:"]');
+    if (link) trackEvent("mailto_click", { page_path: location.pathname });
+  });
+</script>

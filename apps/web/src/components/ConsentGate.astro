@@ -1,0 +1,62 @@
+---
+/**
+ * Two-click gate for third-party embeds (YouTube, maps, …).
+ *
+ * The slot content is NOT in the DOM until consent is given — it sits in a
+ * <template>, so no request leaves the browser beforehand. That is the whole
+ * point: a hidden iframe still loads.
+ *
+ * Usage:
+ *   <ConsentGate service="youtube" label="YouTube video">
+ *     <iframe src="https://www.youtube-nocookie.com/embed/…" />
+ *   </ConsentGate>
+ */
+interface Props {
+  /** Service id as registered in consent-services.ts */
+  service: string;
+  label: string;
+}
+const { service, label } = Astro.props;
+---
+
+<div data-consent-gate={service}>
+  <div
+    data-consent-placeholder
+    class="rounded-xl border border-neutral-300 bg-neutral-50 p-6 text-center"
+  >
+    <p class="mb-3 text-sm">
+      {label} is only loaded after your consent.
+    </p>
+    <button
+      type="button"
+      data-consent-allow
+      class="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white"
+    >
+      Load {label}
+    </button>
+  </div>
+  <template data-consent-content><slot /></template>
+</div>
+
+<script>
+  import { onConsentChange, saveChoices } from "../lib/consent";
+
+  document.querySelectorAll<HTMLElement>("[data-consent-gate]").forEach((gate) => {
+    const service = gate.dataset.consentGate!;
+    const placeholder = gate.querySelector<HTMLElement>("[data-consent-placeholder]");
+    const template = gate.querySelector<HTMLTemplateElement>("[data-consent-content]");
+
+    const reveal = () => {
+      if (!template || gate.dataset.revealed === "true") return;
+      gate.dataset.revealed = "true";
+      placeholder?.remove();
+      gate.appendChild(template.content.cloneNode(true));
+    };
+
+    onConsentChange(service, (granted) => granted && reveal());
+
+    gate.querySelector("[data-consent-allow]")?.addEventListener("click", () => {
+      saveChoices({ [service]: true });
+    });
+  });
+</script>

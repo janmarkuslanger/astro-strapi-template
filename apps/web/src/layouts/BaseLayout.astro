@@ -1,0 +1,79 @@
+---
+import type { SiteGlobal } from "../lib/cms/types";
+import ConsentBanner from "../components/ConsentBanner.astro";
+
+interface Props {
+  global: SiteGlobal;
+  title: string;
+  description?: string;
+  image?: string;
+  /** JSON-LD nodes from lib/seo.ts */
+  schemas?: Record<string, unknown>[];
+}
+
+const { global, title, description, image, schemas = [] } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    <link rel="canonical" href={canonical} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    {description && <meta property="og:description" content={description} />}
+    <meta property="og:url" content={canonical} />
+    {image && <meta property="og:image" content={image} />}
+    <meta name="twitter:card" content={image ? "summary_large_image" : "summary"} />
+
+    {/* Derived from the content blocks — see lib/seo.ts */}
+    {schemas.map((schema) => (
+      <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+    ))}
+  </head>
+
+  <body class="min-h-screen bg-white text-neutral-900 antialiased">
+    <header class="border-b">
+      <nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+        <a href="/" class="font-bold">{global.siteName}</a>
+        <ul class="flex gap-5 text-sm">
+          {global.navigation.map((item) => (
+            <li><a href={item.href} class="hover:underline">{item.label}</a></li>
+          ))}
+        </ul>
+      </nav>
+    </header>
+
+    <main><slot /></main>
+
+    <footer class="mt-16 border-t">
+      <div class="mx-auto max-w-5xl px-4 py-10 text-sm">
+        <ul class="flex flex-wrap gap-4">
+          {global.footerLinks.map((link) => (
+            <li><a href={link.href} class="hover:underline">{link.label}</a></li>
+          ))}
+          {/*
+            Only offered when a consent service exists — otherwise the button
+            would open a banner with nothing in it.
+          */}
+          {import.meta.env.PUBLIC_GA_MEASUREMENT_ID && (
+            <li>
+              <button type="button" data-consent-settings class="hover:underline">
+                Cookie settings
+              </button>
+            </li>
+          )}
+        </ul>
+
+        <p class="mt-6 opacity-70">© {global.siteName} {new Date().getFullYear()}</p>
+      </div>
+    </footer>
+
+    <ConsentBanner />
+  </body>
+</html>

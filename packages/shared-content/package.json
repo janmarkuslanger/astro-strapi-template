@@ -1,0 +1,11 @@
+{
+  "name": "@project/shared-content",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fixtures in Strapi response format. Seeds an empty CMS exactly once.",
+  "exports": {
+    "./pages.json": "./data/pages.json",
+    "./shared-blocks.json": "./data/shared-blocks.json",
+    "./global.json": "./data/global.json"
+  }
+}

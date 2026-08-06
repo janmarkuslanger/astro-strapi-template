@@ -1,0 +1,62 @@
+name: Deploy
+
+# One pipeline for both halves, because their order matters: the frontend is
+# built statically against the CMS, so a page using a new block only builds
+# once Strapi knows that component. The web job therefore always waits.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never two deployments against the same environment at once. Shared with
+# content-rebuild.yml so a publish cannot overlap a code deploy.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      cms: ${{ steps.filter.outputs.cms }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Did anything the CMS ships change?
+        id: filter
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          # Anything but a regular push (manual run, first push, force push)
+          # deploys the CMS — cheaper than guessing wrong.
+          if [ "${{ github.event_name }}" != "push" ] \
+             || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            echo "cms=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # `deploy/` belongs in this list even though it is not the CMS: the
+          # rsync in that job is the only way server configs reach the machine.
+          if git diff --name-only "$BEFORE" "${{ github.sha }}" \
+             | grep -qE '^(apps/cms/|packages/shared-content/|deploy/|package\.json$|package-lock\.json$)'; then
+            echo "cms=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cms=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  cms:
+    # Only needed when self-hosting the CMS. On Strapi Cloud, delete this job
+    # and drop the `needs: cms` below.
+    needs: changes
+    if: needs.changes.outputs.cms == 'true' && vars.CMS_TARGET == 'self-hosted'
+    uses: ./.github/workflows/deploy-cms.yml
+    secrets: inherit
+
+  web:
+    # Runs after the CMS is up — also when the cms job was skipped because
+    # nothing it ships changed, but never after a FAILED CMS deploy: building
+    # the frontend against a half-deployed CMS is exactly what this avoids.
+    needs: [changes, cms]
+    if: always() && needs.cms.result != 'failure' && needs.cms.result != 'cancelled'
+    uses: ./.github/workflows/deploy-web.yml
+    secrets: inherit

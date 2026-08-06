@@ -1,0 +1,12 @@
+[
+  {
+    "name": "Shared example",
+    "blocks": [
+      {
+        "__component": "blocks.rich-text",
+        "heading": "Maintained once, shown anywhere",
+        "body": "This text lives in a single reusable block. Insert it on any page with a Reference block and edit it in one place."
+      }
+    ]
+  }
+]

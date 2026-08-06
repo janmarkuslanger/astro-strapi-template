@@ -1,0 +1,137 @@
+name: Deploy frontend
+
+# Builds the static site against the live CMS.
+#
+# Reusable on purpose: the same steps run after a code deploy and after a
+# manual/dispatched content rebuild. Callers share a concurrency group so two
+# runs can never ship over each other.
+#
+# TARGET-AGNOSTIC: everything above "Ship" is identical for every hosting
+# target. Pick one of the shipping steps at the bottom and delete the rest.
+
+on:
+  workflow_call:
+    inputs:
+      strapi-url:
+        description: Build-time CMS address
+        required: false
+        type: string
+        default: ""
+
+env:
+  # Where the built site ends up. Same for every target.
+  DIST: apps/web/dist
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # NOTE: no PUBLIC_* variables here, deliberately.
+      #
+      # Everything the visitor sees comes from the committed
+      # apps/web/.env.production, which Astro loads on every build machine —
+      # that is what keeps CI and any other build path identical. `${{ vars.X }}`
+      # yields an empty string when a variable is unset, and an
+      # exported-but-empty value silently OVERRIDES the file. See CLAUDE.md §3.
+      #
+      # STRAPI_URL is build-time only and never reaches the browser, so it may
+      # legitimately differ per build path.
+      - name: Build the site against the CMS
+        env:
+          STRAPI_URL: ${{ inputs.strapi-url || vars.STRAPI_URL }}
+          STRAPI_TOKEN: ${{ secrets.STRAPI_TOKEN }}
+        run: npm run build:web
+
+      # A site that lost its consent banner still returns HTTP 200 — the only
+      # way to notice is to assert before shipping.
+      - name: Verify the build carries its public config
+        run: |
+          set -euo pipefail
+          ga_id="$(sed -n 's/^PUBLIC_GA_MEASUREMENT_ID=//p' apps/web/.env.production | tr -d '"'"'"' \r')"
+          if [ -n "$ga_id" ]; then
+            if grep -rqF "$ga_id" "$DIST"; then
+              echo "OK: measurement id present in the build."
+            else
+              echo "::error::Build does not contain $ga_id — the consent banner is missing too. Not shipping."
+              exit 1
+            fi
+          else
+            echo "No measurement id configured — skipping the check."
+          fi
+          if grep -rq "127\.0\.0\.1" "$DIST"; then
+            echo "::error::Build contains 127.0.0.1 — visitors cannot load that. Check PUBLIC_STRAPI_URL."
+            exit 1
+          fi
+
+      # ------------------------------------------------------------------
+      # Ship — keep ONE of these.
+      # ------------------------------------------------------------------
+
+      # Target: Vercel / Netlify / Cloudflare Pages
+      # Usually you do not need this workflow at all — point the platform at
+      # the repo and let it build. Keep the build+verify steps above as a CI
+      # check, and delete everything below.
+
+      # Target: any static host over SSH (vServer, shared hosting with rsync)
+      - name: Set up SSH
+        if: vars.DEPLOY_TARGET == 'ssh'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Upload as a new release and switch atomically
+        if: vars.DEPLOY_TARGET == 'ssh'
+        run: |
+          set -euo pipefail
+          # One directory per run: a content rebuild carries the same commit as
+          # the deploy before it, so the sha alone would collide.
+          RELEASE="$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA::7}"
+          ROOT="${{ vars.WEB_ROOT }}"
+
+          ssh -i ~/.ssh/deploy_key "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "mkdir -p $ROOT/releases/$RELEASE"
+
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            "$DIST/" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:$ROOT/releases/$RELEASE/"
+
+          ssh -i ~/.ssh/deploy_key "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            bash -euo pipefail <<REMOTE
+            cd "$ROOT"
+            # Atomic: the web server follows the symlink per request, so no
+            # visitor ever sees a half-copied release.
+            ln -sfn "releases/$RELEASE" current.tmp
+            mv -Tf current.tmp current
+            # Keep five for a one-command rollback.
+            ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf
+          REMOTE
+
+      - name: Health check
+        if: vars.SITE_URL != ''
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.SITE_URL }}" || true)
+            [ "$code" = "200" ] && { echo "Site is responding."; exit 0; }
+            echo "Attempt $i: HTTP $code — waiting …"
+            sleep 5
+          done
+          echo "::error::Site did not respond within 50s."
+          exit 1

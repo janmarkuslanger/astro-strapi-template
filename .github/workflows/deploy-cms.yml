@@ -1,0 +1,116 @@
+name: Deploy CMS
+
+# Only for a self-hosted Strapi. On Strapi Cloud, delete this file and the
+# `cms` job in deploy.yml.
+#
+# Strapi is built on the RUNNER, not on the server: the admin panel build needs
+# ~1.5 GB of RAM and would push a small box into swapping while it serves
+# traffic.
+
+on:
+  workflow_call:
+
+env:
+  APP_DIR: ${{ vars.APP_DIR }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Two steps here install dependencies, on very different machines: this
+      # one on the runner, the one below over SSH on the server. Keep the names
+      # distinguishable — a failing log is hard to place otherwise.
+      - name: Install dependencies (runner)
+        run: npm ci
+
+      - name: Build Strapi (TypeScript + admin panel)
+        run: npm run build:cms
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Upload files
+        run: |
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            --exclude ".git" \
+            --exclude "node_modules" \
+            --exclude "apps/web/dist" \
+            --exclude "apps/cms/.env" \
+            --exclude "apps/cms/.tmp" \
+            --exclude "apps/cms/public/uploads" \
+            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.APP_DIR }}/"
+
+      - name: Install dependencies on the server and restart the service
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -euo pipefail <<'REMOTE'
+            cd "${{ vars.APP_DIR }}"
+
+            # Uploads live outside the deploy directory and are linked in, so
+            # the media library survives rsync --delete.
+            mkdir -p "${{ vars.SHARED_DIR }}/uploads"
+            ln -sfn "${{ vars.SHARED_DIR }}/uploads" apps/cms/public/uploads
+
+            # If a publish can trigger a local site build, take the same lock
+            # it takes — npm ci deletes node_modules, and a build reading from
+            # it at the same moment leaves a tree that runs nothing.
+            if [ -n "${WEB_ROOT:-}" ]; then
+              mkdir -p "$WEB_ROOT"
+              exec 9>"$WEB_ROOT/.rebuild.lock"
+              flock -w 600 9 || { echo "::error::A site build has held the lock for over 10 minutes."; exit 1; }
+            fi
+
+            # npm ci deletes node_modules and reinstalls everything: the most
+            # expensive step and the only one that can leave the machine unable
+            # to run anything. Most of the time it has nothing to do, so only
+            # install when the lockfile moved or the tree is incomplete. The
+            # stamp is written only AFTER success, so an interrupted run never
+            # claims a healthy tree.
+            STAMP="${{ vars.SHARED_DIR }}/package-lock.installed"
+            if [ -x node_modules/.bin/strapi ] && cmp -s package-lock.json "$STAMP"; then
+              echo "Dependencies unchanged — install skipped."
+            else
+              rm -f "$STAMP"
+              echo "Memory before the install:"
+              free -m || true
+              # --maxsockets limits parallel extractions (the memory peak); the
+              # capped heap makes npm collect garbage instead of growing until
+              # the kernel steps in.
+              status=0
+              NODE_OPTIONS=--max-old-space-size=768 \
+                npm ci --no-audit --no-fund --maxsockets 3 || status=$?
+              if [ "$status" -ne 0 ]; then
+                echo "::error::npm ci failed with status $status."
+                [ "$status" -eq 137 ] && echo "137 = SIGKILL: out of memory. Check 'free -m' and 'swapon --show' — a swap file is not optional on a small box."
+                exit "$status"
+              fi
+              cp package-lock.json "$STAMP"
+            fi
+
+            sudo /bin/systemctl restart "${{ vars.SERVICE_NAME }}"
+          REMOTE
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.CMS_URL }}/api/global" || true)
+            [ "$code" = "200" ] && { echo "CMS is responding."; exit 0; }
+            echo "Attempt $i: HTTP $code — waiting …"
+            sleep 5
+          done
+          echo "::error::CMS did not respond within 100s."
+          exit 1

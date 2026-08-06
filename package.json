@@ -1,0 +1,20 @@
+{
+  "name": "PROJECT_NAME",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Monorepo: Astro frontend, Strapi CMS, decoupled API layer",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace apps/web",
+    "dev:cms": "npm run develop --workspace apps/cms",
+    "build:web": "npm run build --workspace apps/web",
+    "build:cms": "npm run build --workspace apps/cms",
+    "preview:web": "npm run preview --workspace apps/web"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

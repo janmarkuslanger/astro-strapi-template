@@ -1,0 +1,13 @@
+{
+  "siteName": "PROJECT",
+  "claim": "One sentence describing what this site is.",
+  "email": "hello@example.com",
+  "navigation": [
+    { "label": "Home", "href": "/" },
+    { "label": "About", "href": "/about" }
+  ],
+  "footerLinks": [
+    { "label": "Imprint", "href": "/imprint" },
+    { "label": "Privacy", "href": "/privacy" }
+  ]
+}

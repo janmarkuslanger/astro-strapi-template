@@ -1,0 +1,27 @@
+[
+  {
+    "title": "Home",
+    "slug": "home",
+    "seo": { "title": "PROJECT", "description": "One sentence for search engines." },
+    "blocks": [
+      {
+        "__component": "blocks.rich-text",
+        "heading": "It works",
+        "body": "Replace this page. It exists so a fresh install renders something, and so the seeding path is exercised on first boot.\n\nMarkdown is rendered to HTML by the mapper, once, at build time."
+      },
+      { "__component": "blocks.reference", "block": { "__sharedBlock": "Shared example" } }
+    ]
+  },
+  {
+    "title": "About",
+    "slug": "about",
+    "seo": { "title": "About — PROJECT", "description": "About this project." },
+    "blocks": [
+      {
+        "__component": "blocks.rich-text",
+        "heading": "About",
+        "body": "A second page, so routing and navigation have something to do."
+      }
+    ]
+  }
+]

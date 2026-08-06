@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# builds
+dist/
+build/
+.astro/
+.strapi/
+.strapi-updater.json
+
+# env
+# apps/web/.env.production is deliberately NOT ignored: it holds the public
+# build configuration that every build machine must agree on. See CLAUDE.md §3.
+.env
+.env.local
+.env.*.local
+
+# strapi runtime
+apps/cms/.tmp/
+apps/cms/public/uploads/*
+!apps/cms/public/uploads/.gitkeep
+
+# os / editor
+.DS_Store
+*.log

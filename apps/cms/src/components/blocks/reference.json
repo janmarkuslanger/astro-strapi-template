@@ -1,0 +1,15 @@
+{
+  "collectionName": "components_blocks_references",
+  "info": {
+    "displayName": "Reference",
+    "icon": "link"
+  },
+  "options": {},
+  "attributes": {
+    "block": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::shared-block.shared-block"
+    }
+  }
+}
