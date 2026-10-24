@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
-      - name: Did anything the CMS ships change?
+      - name: Did anything the server builds from change?
         id: filter
         env:
           BEFORE: ${{ github.event.before }}
@@ -35,10 +35,16 @@ jobs:
              || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
             echo "cms=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          # `deploy/` belongs in this list even though it is not the CMS: the
-          # rsync in that job is the only way server configs reach the machine.
+          # The cms job's rsync is the ONLY way the repo reaches the server —
+          # and a publish-triggered rebuild (REBUILD_STRATEGY=script) builds the
+          # site from that copy. Skip it for a frontend-only push and the next
+          # publish silently replaces the new release with one built from stale
+          # source. So this is a deny-list of files that never matter on the
+          # server, not an allow-list of CMS paths: a new root config file must
+          # not be able to reopen the gap.
           if git diff --name-only "$BEFORE" "${{ github.sha }}" \
-             | grep -qE '^(apps/cms/|packages/shared-content/|deploy/|package\.json$|package-lock\.json$)'; then
+             | grep -vE '^(\.github/|docs/|README\.md$|CLAUDE\.md$|LICENSE$)' \
+             | grep -q .; then
             echo "cms=true" >> "$GITHUB_OUTPUT"
           else
             echo "cms=false" >> "$GITHUB_OUTPUT"

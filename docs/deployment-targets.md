@@ -66,6 +66,12 @@ and no visitor ever sees a half-copied directory. Rollback is one command.
 CI round trip, no token. Hook into Strapi's content events, debounce a few
 seconds, spawn a detached build script.
 
+That script builds from the repo copy in `app/`, which only the CMS deploy job
+updates. The path filter in `deploy.yml` therefore runs that job for every push
+except docs-only ones, frontend changes included. Narrow it and a frontend-only
+push goes live, then gets reverted by the next publish, which rebuilds from the
+old source with no error.
+
 **Small-box warnings** (1 core / 2 GB — all learned the hard way):
 
 - Set up **swap** before anything else. Without it `npm ci` gets OOM-killed
