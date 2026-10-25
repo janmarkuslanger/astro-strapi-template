@@ -9,6 +9,7 @@
     "strapi": "strapi"
   },
   "dependencies": {
+    "@janmarkuslanger/strapi-kit": "0.1.0",
     "@project/shared-content": "*",
     "@strapi/plugin-users-permissions": "^5.12.4",
     "@strapi/provider-email-nodemailer": "^5.12.4",

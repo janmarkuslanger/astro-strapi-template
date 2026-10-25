@@ -118,14 +118,13 @@ apps/
     src/components/       ConsentBanner, ConsentGate, BlockRenderer
   cms/                    Strapi 5
     config/               server, database, middlewares, plugins
-    src/index.ts          bootstrap: public permissions, seed, rebuild trigger
-    src/seed.ts           runs once, into an empty database only
-    src/rebuild.ts        publish → rebuild (hook | script | none)
+    src/index.ts          bootstrap: public actions, seed steps, watched types
     src/api/              content types
     src/components/       block + shared components
 packages/                 platform packages, published to npm
   core/                   domain types, block contract, llms.txt, JSON-LD
   cms-strapi/             Strapi adapter, defineBlock
+  strapi-kit/             CMS side: permissions, one-time seed, publish → rebuild
   shared-content/         fixtures in Strapi response format (site-owned)
 docs/
   architecture.md         rules, layers, target package split, adding blocks

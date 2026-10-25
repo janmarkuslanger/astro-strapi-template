@@ -3,7 +3,7 @@ import path from "node:path";
 import type { Core } from "@strapi/strapi";
 
 /**
- * Initial content from @project/shared-content.
+ * Initial content from fixtures.
  *
  * Runs exactly once, into an empty database: the fixtures are the starting
  * state of a fresh installation, nothing more. As soon as any content exists —
@@ -12,7 +12,7 @@ import type { Core } from "@strapi/strapi";
  * nobody can lose an afternoon of editing to a restart.
  *
  * There is deliberately NO force flag. If you want one, you want a database
- * reset instead:  rm -rf apps/cms/.tmp && npm run dev:cms
+ * reset instead (local SQLite: delete apps/cms/.tmp).
  *
  * Structure (content types, blocks, fields) still comes from code and ships
  * with every deploy; only the *content* is one-way and one-time.
@@ -21,23 +21,35 @@ import type { Core } from "@strapi/strapi";
  * reused, so re-seeding never piles up duplicates) and anything a visitor
  * created, such as form submissions.
  *
- * Extending: add your content type to CONTENT_TYPES so it counts as "the site
- * has content", add its fixture file, and create it below in dependency order.
+ * Extending: add a step for your content type, in dependency order. Every
+ * step's type counts as "the site already has content".
  */
 
-const seedSharedBlocks: any[] = require("@project/shared-content/shared-blocks.json");
-const seedPages: any[] = require("@project/shared-content/pages.json");
-const seedGlobal: any = require("@project/shared-content/global.json");
+export interface SeedStep {
+  /** Content type, e.g. "api::page.page". */
+  uid: string;
+  /** Fixture entries — an array, or a single object for a single type. */
+  entries: any[] | any;
+  /**
+   * Makes created entries referable by later steps: `{ [token]: entry[key] }`
+   * anywhere in a later fixture becomes the created documentId. Example:
+   * `{ key: "name", token: "__sharedBlock" }`.
+   */
+  ref?: { key: string; token: string };
+}
 
-/** Every content type that counts as "the site already has content". */
-const CONTENT_TYPES = [
-  "api::page.page",
-  "api::shared-block.shared-block",
-  "api::global.global",
-] as const;
+export interface SeedOptions {
+  /** In dependency order: referenced types before the types that use them. */
+  steps: SeedStep[];
+  /**
+   * Images to upload, referenced in fixtures as `{ "__file": "name.jpg" }`.
+   * Default: `data/uploads` relative to the CMS app.
+   */
+  uploadsDir?: string;
+}
 
-async function hasContent(strapi: Core.Strapi): Promise<boolean> {
-  for (const uid of CONTENT_TYPES) {
+async function hasContent(strapi: Core.Strapi, uids: string[]): Promise<boolean> {
+  for (const uid of uids) {
     const count = await strapi.documents(uid as any).count({});
     if (count > 0) return true;
   }
@@ -45,9 +57,11 @@ async function hasContent(strapi: Core.Strapi): Promise<boolean> {
 }
 
 /** Uploads images from apps/cms/data/uploads, indexed by file name. */
-async function uploadSeedImages(strapi: Core.Strapi): Promise<Map<string, any>> {
+async function uploadSeedImages(
+  strapi: Core.Strapi,
+  uploadDir: string
+): Promise<Map<string, any>> {
   const uploaded = new Map<string, any>();
-  const uploadDir = path.resolve(process.cwd(), "data", "uploads");
   if (!fs.existsSync(uploadDir)) return uploaded;
 
   const uploadService = strapi.plugin("upload").service("upload");
@@ -105,31 +119,30 @@ function resolveFiles(value: any, files: Map<string, any>): any {
   return value;
 }
 
-export async function seedContent(strapi: Core.Strapi): Promise<void> {
-  if (await hasContent(strapi)) {
+export async function seedContent(
+  strapi: Core.Strapi,
+  options: SeedOptions
+): Promise<void> {
+  if (await hasContent(strapi, options.steps.map((step) => step.uid))) {
     strapi.log.info("Seed: content already exists — skipped.");
     return;
   }
 
   strapi.log.info("Seed: empty database — creating initial content.");
-  const files = await uploadSeedImages(strapi);
+  const files = await uploadSeedImages(
+    strapi,
+    options.uploadsDir ?? path.resolve(process.cwd(), "data", "uploads")
+  );
 
-  // Shared blocks first: pages reference them by name.
-  const sharedBlockIds = new Map<string, string>();
-  for (const block of seedSharedBlocks) {
-    const created = await strapi.documents("api::shared-block.shared-block").create({
-      data: resolveFiles(block, files),
-      status: "published",
-    });
-    sharedBlockIds.set(block.name, created.documentId);
-  }
+  /** token → (fixture key → created documentId) */
+  const refs = new Map<string, Map<string, string>>();
 
-  /** Turns `{ "__sharedBlock": "Name" }` into the created block's id. */
+  /** Turns `{ "<token>": "Name" }` into the created entry's documentId. */
   const resolveRefs = (value: any): any => {
     if (Array.isArray(value)) return value.map(resolveRefs);
     if (value && typeof value === "object") {
-      if (typeof value.__sharedBlock === "string") {
-        return sharedBlockIds.get(value.__sharedBlock) ?? null;
+      for (const [token, ids] of refs) {
+        if (typeof value[token] === "string") return ids.get(value[token]) ?? null;
       }
       return Object.fromEntries(
         Object.entries(value).map(([k, v]) => [k, resolveRefs(v)])
@@ -138,16 +151,25 @@ export async function seedContent(strapi: Core.Strapi): Promise<void> {
     return value;
   };
 
-  for (const page of seedPages) {
-    await strapi.documents("api::page.page").create({
-      data: resolveRefs(resolveFiles(page, files)),
-      status: "published",
-    });
-  }
+  for (const step of options.steps) {
+    // Types with draft & publish are created published; for the others a
+    // status means nothing.
+    const draftAndPublish = Boolean(
+      (strapi.contentType(step.uid as any) as any)?.options?.draftAndPublish
+    );
+    const entries = Array.isArray(step.entries) ? step.entries : [step.entries];
+    const ids = new Map<string, string>();
 
-  await strapi.documents("api::global.global").create({
-    data: resolveRefs(resolveFiles(seedGlobal, files)),
-  });
+    for (const entry of entries) {
+      const created = await strapi.documents(step.uid as any).create({
+        data: resolveRefs(resolveFiles(entry, files)),
+        ...(draftAndPublish ? { status: "published" as const } : {}),
+      });
+      if (step.ref) ids.set(String(entry[step.ref.key]), created.documentId);
+    }
+
+    if (step.ref) refs.set(step.ref.token, ids);
+  }
 
   strapi.log.info("Seed: done.");
 }

@@ -8,11 +8,11 @@
     "packages/*"
   ],
   "scripts": {
-    "build:packages": "npm run build -w packages/core -w packages/cms-strapi",
+    "build:packages": "npm run build -w packages/core -w packages/cms-strapi -w packages/strapi-kit",
     "dev:web": "npm run build:packages && npm run dev --workspace apps/web",
-    "dev:cms": "npm run develop --workspace apps/cms",
+    "dev:cms": "npm run build:packages && npm run develop --workspace apps/cms",
     "build:web": "npm run build:packages && npm run build --workspace apps/web",
-    "build:cms": "npm run build --workspace apps/cms",
+    "build:cms": "npm run build:packages && npm run build --workspace apps/cms",
     "preview:web": "npm run preview --workspace apps/web"
   },
   "engines": {

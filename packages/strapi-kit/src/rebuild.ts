@@ -41,14 +41,14 @@ import type { Core } from "@strapi/strapi";
  *   REBUILD_LOG        strategy=script: log file for build output
  */
 
-/** Content types whose changes are visible on the site. */
-const WATCHED = [
-  "api::page.page",
-  "api::shared-block.shared-block",
-  "api::global.global",
-  // Add each content type that is visible on the site. Deliberately NOT here:
-  // form submissions — a visitor sending a message must not cause a deploy.
-];
+export interface RebuildOptions {
+  /**
+   * Content types whose changes are visible on the site. Deliberately NOT
+   * here: form submissions — a visitor sending a message must not cause a
+   * deploy.
+   */
+  watched: string[];
+}
 
 const PUBLISH_EVENTS = ["entry.publish", "entry.unpublish", "entry.delete"];
 const DIRECT_EVENTS = ["entry.create", "entry.update", "entry.delete"];
@@ -78,7 +78,10 @@ function resolveConfig() {
   };
 }
 
-export function registerRebuildTrigger(strapi: Core.Strapi): void {
+export function registerRebuildTrigger(
+  strapi: Core.Strapi,
+  options: RebuildOptions
+): void {
   const cfg = resolveConfig();
 
   if (!cfg.enabled || cfg.strategy === "none") {
@@ -158,7 +161,7 @@ export function registerRebuildTrigger(strapi: Core.Strapi): void {
     timer.unref?.();
   };
 
-  for (const uid of WATCHED) {
+  for (const uid of options.watched) {
     let contentType: any;
     try {
       contentType = strapi.contentType(uid as any);

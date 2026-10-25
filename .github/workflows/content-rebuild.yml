@@ -3,7 +3,7 @@ name: Content rebuild
 # Rebuilds the site — the MANUAL FALLBACK.
 #
 # The regular path after a publish does not go through GitHub: see
-# apps/cms/src/rebuild.ts (strategy "hook" or "script"). That is faster and
+# packages/strapi-kit/src/rebuild.ts (strategy "hook" or "script"). That is faster and
 # works even when GitHub does not.
 #
 # This workflow stays for the case where the normal path is stuck — a broken

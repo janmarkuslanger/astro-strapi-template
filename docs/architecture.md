@@ -121,9 +121,10 @@ Nested relations or media deeper than one level need an explicit `cms.populate`,
 ## Adding a content type
 
 - Schema under `apps/cms/src/api/<name>/`
-- Read actions in `setPublicPermissions`, **only if the frontend reads it**. Never visitor-created data.
-- `WATCHED` in `rebuild.ts` if changes should rebuild the site
-- `CONTENT_TYPES` in `seed.ts`
+- In `apps/cms/src/index.ts`:
+  - `PUBLIC_ACTIONS`, **only if the frontend reads it**. Never visitor-created data.
+  - `WATCHED` if changes should rebuild the site
+  - a seed step, in dependency order
 - Repository method + adapter implementation if pages read it
 
 ## Mechanisms

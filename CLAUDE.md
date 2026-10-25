@@ -241,7 +241,8 @@ every submission as its own content type **and** email it. Both best-effort:
 the request should fail only if neither worked. A durable record in the panel
 survives a broken SMTP config, and requests stay reviewable without inbox
 access. Such a content type must have **no public REST route** and must stay
-out of `setPublicPermissions` — it holds other people's personal data.
+out of `PUBLIC_ACTIONS` (`apps/cms/src/index.ts`) — it holds other people's
+personal data.
 
 **One form type = one endpoint = one content type.** Do not add a "source" or
 "type" discriminator field so two forms can share an endpoint — that field only
