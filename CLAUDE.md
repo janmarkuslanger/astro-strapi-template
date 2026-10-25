@@ -257,8 +257,8 @@ a fresh install works without manual steps.
   with no extra code. **If you add view transitions, you must fire `page_view`
   manually** on every virtual navigation — otherwise analytics silently reports
   only the landing page.
-- **Pin `@astrojs/sitemap` to a version matching the Astro major.** v3.x for
-  Astro 4; newer needs Astro 5.
+- **Pin `@astrojs/sitemap` exactly.** On Astro 4 that is `3.6.0`; 3.6.1+
+  break the build. A caret range drifts into a broken version.
 - Directory-style URLs, so links have no `.html`.
 
 ---

@@ -19,6 +19,13 @@ const BLOCK_POPULATE = [
   `populate[blocks][on][${REFERENCE_COMPONENT}][populate]=block`,
 ].join("&");
 
+/**
+ * Pages additionally need their `seo` component. Strapi 5 populates no
+ * component unless asked, so without this every page silently loses its
+ * title and meta description.
+ */
+const PAGE_POPULATE = `populate[seo]=true&${BLOCK_POPULATE}`;
+
 export class StrapiCmsAdapter implements CmsRepository {
   /** Cache so a page with five references costs one extra request, not five. */
   private sharedBlocks: Map<string, Block[]> | null = null;
@@ -105,14 +112,14 @@ export class StrapiCmsAdapter implements CmsRepository {
   }
 
   async listPages(): Promise<Page[]> {
-    const json = await this.fetchJson(`/api/pages?${BLOCK_POPULATE}`);
+    const json = await this.fetchJson(`/api/pages?${PAGE_POPULATE}`);
     const resolve = await this.blockResolver();
     return (json.data ?? []).map((e: any) => mapPage(e, this.mediaUrl, resolve));
   }
 
   async getPage(slug: string): Promise<Page | null> {
     const json = await this.fetchJson(
-      `/api/pages?filters[slug][$eq]=${encodeURIComponent(slug)}&${BLOCK_POPULATE}`
+      `/api/pages?filters[slug][$eq]=${encodeURIComponent(slug)}&${PAGE_POPULATE}`
     );
     const entry = (json.data ?? [])[0];
     if (!entry) return null;
