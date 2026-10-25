@@ -1,65 +1,64 @@
 import type { Core } from "@strapi/strapi";
-import { registerRebuildTrigger } from "./rebuild";
-import { seedContent } from "./seed";
+import {
+  registerRebuildTrigger,
+  seedContent,
+  setPublicPermissions,
+} from "@janmarkuslanger/powerhouse-strapi-kit";
+
+const seedSharedBlocks: any[] = require("@project/shared-content/shared-blocks.json");
+const seedPages: any[] = require("@project/shared-content/pages.json");
+const seedGlobal: any = require("@project/shared-content/global.json");
 
 /**
- * Grants the public role read access to the content APIs, so the statically
- * built frontend can fetch without a token.
- *
- * Done in code rather than clicked in the panel: a fresh install has to work
- * without a manual checklist, and a forgotten checkbox here shows up as a
- * confusing 403 during the frontend build.
- *
- * Note this is ROLE permission, not FIELD permission. Strapi's field-level
- * permissions are separate and are NOT auto-granted for new fields — after
- * adding a field, editors will report they cannot see it, and the fix is in
- * Settings → Roles in the panel. See CLAUDE.md §5.
+ * What the frontend may read without a token. Add each new content type the
+ * frontend reads. Deliberately absent: anything private, e.g. form
+ * submissions — those must never be readable over the public API.
  */
-async function setPublicPermissions(strapi: Core.Strapi) {
-  const publicRole = await strapi.db
-    .query("plugin::users-permissions.role")
-    .findOne({ where: { type: "public" } });
-  if (!publicRole) return;
+const PUBLIC_ACTIONS = [
+  "api::page.page.find",
+  "api::page.page.findOne",
+  "api::shared-block.shared-block.find",
+  "api::shared-block.shared-block.findOne",
+  "api::global.global.find",
+];
 
-  const actions = [
-    "api::page.page.find",
-    "api::page.page.findOne",
-    "api::shared-block.shared-block.find",
-    "api::shared-block.shared-block.findOne",
-    "api::global.global.find",
-    // Add each new content type the frontend reads. Deliberately absent from
-    // this list: anything private, e.g. form submissions — those must never be
-    // readable over the public API.
-  ];
-
-  for (const action of actions) {
-    const existing = await strapi.db
-      .query("plugin::users-permissions.permission")
-      .findOne({ where: { action, role: publicRole.id } });
-    if (!existing) {
-      await strapi.db
-        .query("plugin::users-permissions.permission")
-        .create({ data: { action, role: publicRole.id } });
-    }
-  }
-}
+/**
+ * Content types visible on the site; a change to one rebuilds it. Not here:
+ * form submissions — a visitor sending a message must not cause a deploy.
+ */
+const WATCHED = [
+  "api::page.page",
+  "api::shared-block.shared-block",
+  "api::global.global",
+];
 
 export default {
   register() {},
 
   async bootstrap({ strapi }: { strapi: Core.Strapi }) {
-    await setPublicPermissions(strapi);
+    await setPublicPermissions(strapi, PUBLIC_ACTIONS);
 
-    // Fills an empty database and does nothing at all once any content
-    // exists — see seed.ts. Wrapped so a seed problem never blocks boot.
+    // Fills an empty database once and never again. Steps in dependency
+    // order: shared blocks first, pages reference them by name. Wrapped so a
+    // seed problem never blocks boot.
     try {
-      await seedContent(strapi);
+      await seedContent(strapi, {
+        steps: [
+          {
+            uid: "api::shared-block.shared-block",
+            entries: seedSharedBlocks,
+            ref: { key: "name", token: "__sharedBlock" },
+          },
+          { uid: "api::page.page", entries: seedPages },
+          { uid: "api::global.global", entries: seedGlobal },
+        ],
+      });
     } catch (error) {
       strapi.log.error("Seed failed:");
       strapi.log.error(String(error));
     }
 
-    // Content changes have to reach the statically built site — see rebuild.ts.
-    registerRebuildTrigger(strapi);
+    // Content changes have to reach the statically built site.
+    registerRebuildTrigger(strapi, { watched: WATCHED });
   },
 };

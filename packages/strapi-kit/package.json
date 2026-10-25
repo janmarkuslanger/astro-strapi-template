@@ -1,0 +1,14 @@
+{
+  "name": "@janmarkuslanger/powerhouse-strapi-kit",
+  "version": "0.1.0",
+  "description": "Strapi 5 bootstrap helpers: public read permissions, one-time seeding, publish-triggered rebuilds.",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": { "build": "tsc -p tsconfig.json" },
+  "peerDependencies": { "@strapi/strapi": "^5.0.0" },
+  "devDependencies": { "typescript": "^5.6.3" },
+  "publishConfig": { "access": "public" },
+  "repository": { "type": "git", "url": "git+https://github.com/janmarkuslanger/astro-strapi-template.git", "directory": "packages/strapi-kit" }
+}

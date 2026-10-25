@@ -1,0 +1,7 @@
+---
+interface Props {
+  block: { type: "echo"; text: string };
+}
+const { block } = Astro.props;
+---
+<p data-echo>{block.text}</p>

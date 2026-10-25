@@ -39,24 +39,6 @@ const { service, label } = Astro.props;
 </div>
 
 <script>
-  import { onConsentChange, saveChoices } from "../lib/consent";
-
-  document.querySelectorAll<HTMLElement>("[data-consent-gate]").forEach((gate) => {
-    const service = gate.dataset.consentGate!;
-    const placeholder = gate.querySelector<HTMLElement>("[data-consent-placeholder]");
-    const template = gate.querySelector<HTMLTemplateElement>("[data-consent-content]");
-
-    const reveal = () => {
-      if (!template || gate.dataset.revealed === "true") return;
-      gate.dataset.revealed = "true";
-      placeholder?.remove();
-      gate.appendChild(template.content.cloneNode(true));
-    };
-
-    onConsentChange(service, (granted) => granted && reveal());
-
-    gate.querySelector("[data-consent-allow]")?.addEventListener("click", () => {
-      saveChoices({ [service]: true });
-    });
-  });
+  import { initConsentGates } from "@janmarkuslanger/powerhouse-astro";
+  initConsentGates();
 </script>
