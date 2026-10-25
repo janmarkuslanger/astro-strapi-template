@@ -1,5 +1,5 @@
 import { definitionFor, type BlockRegistry, type JsonLd } from "./blocks.js";
-import type { Page, SiteGlobal } from "./types.js";
+import type { BaseBlock, Page, SiteGlobal } from "./types.js";
 
 /**
  * Structured data (JSON-LD).
@@ -22,11 +22,11 @@ export function organizationSchema(global: SiteGlobal, siteUrl: string): JsonLd 
   };
 }
 
-export function pageSchemas(
-  page: Page,
+export function pageSchemas<B extends BaseBlock>(
+  page: Page<B>,
   global: SiteGlobal,
   siteUrl: string,
-  blocks: BlockRegistry<any>
+  blocks: BlockRegistry<B>
 ): JsonLd[] {
   const schemas: JsonLd[] = [];
 

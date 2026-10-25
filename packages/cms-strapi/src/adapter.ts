@@ -1,6 +1,5 @@
 import type {
   BaseBlock,
-  BlockRegistry,
   CmsRepository,
   Page,
   SiteGlobal,
@@ -11,7 +10,9 @@ import {
   mapGlobal,
   mapPage,
   type BlockResolver,
+  type StrapiBlockMapping,
   type StrapiBlockMappings,
+  type StrapiBlockRegistry,
 } from "./mapper.js";
 
 export interface StrapiCmsAdapterOptions<B extends BaseBlock> {
@@ -29,7 +30,7 @@ export interface StrapiCmsAdapterOptions<B extends BaseBlock> {
    */
   mediaUrl?: string;
   /** The site's block registry; the adapter reads each definition's `cms`. */
-  blocks: BlockRegistry<B>;
+  blocks: StrapiBlockRegistry<B>;
 }
 
 export class StrapiCmsAdapter<B extends BaseBlock = BaseBlock>
@@ -62,11 +63,14 @@ export class StrapiCmsAdapter<B extends BaseBlock = BaseBlock>
     this.url = options.url;
     this.token = options.token;
     this.mediaUrl = options.mediaUrl || options.url;
+    // Every value of a StrapiBlockRegistry has a Strapi `cms`; TypeScript
+    // cannot see through a mapped type over a generic union, so say it once.
+    const definitions = Object.entries(options.blocks) as [
+      string,
+      { cms: StrapiBlockMapping<BaseBlock> },
+    ][];
     this.blocks = Object.fromEntries(
-      Object.entries(options.blocks).map(([type, definition]) => [
-        type,
-        (definition as { cms: StrapiBlockMappings[string] }).cms,
-      ])
+      definitions.map(([type, definition]) => [type, definition.cms])
     );
     this.populate = blockPopulate(this.blocks);
     this.pagePopulate = `populate[seo]=true&${this.populate}`;

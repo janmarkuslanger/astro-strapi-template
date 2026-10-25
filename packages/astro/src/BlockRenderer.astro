@@ -14,16 +14,16 @@ import {
   type BlockRegistry,
 } from "@janmarkuslanger/powerhouse-core";
 
-interface Props {
-  blocks: BaseBlock[];
-  registry: BlockRegistry<any>;
+interface Props<B extends BaseBlock> {
+  blocks: B[];
+  registry: BlockRegistry<B>;
 }
 const { blocks, registry } = Astro.props;
 ---
 
 {
   blocks.map((block) => {
-    const Component = definitionFor(registry, block)?.component as any;
+    const Component = definitionFor(registry, block)?.component;
     return Component ? <Component block={block} /> : null;
   })
 }

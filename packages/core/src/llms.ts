@@ -1,5 +1,5 @@
 import { definitionFor, type BlockRegistry } from "./blocks.js";
-import type { Page, SiteGlobal } from "./types.js";
+import type { BaseBlock, Page, SiteGlobal } from "./types.js";
 
 /**
  * Builds `llms.txt` (llmstxt.org) — a compact site summary for generative
@@ -16,11 +16,11 @@ function truncate(value: string, max = 300): string {
   return value.length <= max ? value : `${value.slice(0, max - 1).trimEnd()}…`;
 }
 
-export function buildLlmsTxt(
+export function buildLlmsTxt<B extends BaseBlock>(
   global: SiteGlobal,
-  pages: Page[],
+  pages: Page<B>[],
   siteUrl: string,
-  blocks: BlockRegistry<any>
+  blocks: BlockRegistry<B>
 ): string {
   const lines: string[] = [];
 

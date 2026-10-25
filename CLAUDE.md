@@ -75,7 +75,7 @@ name a block type.
 
 ```ts
 // apps/web/src/blocks/index.ts — typed so every Block["type"] needs an entry
-export const BLOCKS: BlockRegistry = {
+export const BLOCKS: StrapiBlockRegistry<Block> = {
   richText,
   // …
 };

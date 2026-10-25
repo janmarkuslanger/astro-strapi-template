@@ -2,7 +2,7 @@ import type { BaseBlock, BlockDefinition } from "@janmarkuslanger/powerhouse-cor
 import type { StrapiBlockMapping } from "./mapper.js";
 
 export { StrapiCmsAdapter, type StrapiCmsAdapterOptions } from "./adapter.js";
-export type { MapContext, StrapiBlockMapping } from "./mapper.js";
+export type { MapContext, StrapiBlockMapping, StrapiBlockRegistry } from "./mapper.js";
 
 /**
  * Declares a block whose CMS side is Strapi. Identity at runtime; exists so a

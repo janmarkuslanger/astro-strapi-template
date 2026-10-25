@@ -84,8 +84,10 @@ registry and never names a block type.
 | `llms` | Contribution to `llms.txt` (required; `[]` is a valid answer) |
 | `jsonLd` *(optional)* | JSON-LD contribution |
 
-The registry is typed over the site's `Block` union: a missing entry or a
-missing required field does not compile.
+The registry is typed `StrapiBlockRegistry<Block>` (from the adapter package):
+a missing entry, a missing required field or a missing Strapi mapping does not
+compile. Platform functions take it as `BlockRegistry<Block>` and stay
+CMS-agnostic.
 
 ### Distribution
 

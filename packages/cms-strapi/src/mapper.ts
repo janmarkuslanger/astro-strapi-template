@@ -1,6 +1,7 @@
 import { marked } from "marked";
 import type {
   BaseBlock,
+  BlockDefinition,
   ImageAsset,
   Link,
   Page,
@@ -37,8 +38,16 @@ export interface StrapiBlockMapping<B extends BaseBlock> {
   map(raw: any, ctx: MapContext): Omit<B, "type">;
 }
 
+/** A block registry whose CMS side is Strapi: one definition per member of `B`. */
+export type StrapiBlockRegistry<B extends BaseBlock> = {
+  [T in B["type"]]: BlockDefinition<
+    Extract<B, { type: T }>,
+    StrapiBlockMapping<Extract<B, { type: T }>>
+  >;
+};
+
 /** Strapi mappings keyed by domain block type. */
-export type StrapiBlockMappings = Record<string, StrapiBlockMapping<any>>;
+export type StrapiBlockMappings = Record<string, StrapiBlockMapping<BaseBlock>>;
 
 /** Populate query for a dynamic zone holding these blocks plus references. */
 export function blockPopulate(mappings: StrapiBlockMappings): string {

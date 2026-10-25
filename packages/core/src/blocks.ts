@@ -27,16 +27,16 @@ export interface BlockDefinition<B extends BaseBlock, C = unknown> {
  * this makes a missing block a compile error.
  */
 export type BlockRegistry<B extends BaseBlock> = {
-  [T in B["type"]]: BlockDefinition<Extract<B, { type: T }>, any>;
+  [T in B["type"]]: BlockDefinition<Extract<B, { type: T }>>;
 };
 
 /** Definition for a block, or undefined for a type the registry does not know. */
 export function definitionFor<B extends BaseBlock>(
-  registry: BlockRegistry<any>,
+  registry: BlockRegistry<B>,
   block: B
-): BlockDefinition<B, unknown> | undefined {
-  // The mapped type cannot be indexed by a generic B["type"]; the lookup is
-  // sound because each key holds the definition for exactly that type.
-  const byType = registry as Record<string, BlockDefinition<B, unknown> | undefined>;
-  return byType[block.type];
+): BlockDefinition<B> | undefined {
+  // Sound: each key holds the definition for exactly that type. TypeScript
+  // cannot reduce Extract<B, { type: B["type"] }> back to B, so say it once.
+  // `undefined` covers a block whose type the registry does not know.
+  return registry[block.type as B["type"]] as BlockDefinition<B> | undefined;
 }
