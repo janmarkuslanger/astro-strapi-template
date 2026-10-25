@@ -12,16 +12,16 @@
 ## Layers (current)
 
 ```
-packages/core ◀── packages/cms-strapi ◀── apps/web (site) ──▶ apps/cms (REST)
-                                              ▲
-                              packages/shared-content (fixtures → apps/cms)
+site-core ◀── cms-strapi, astro ◀── apps/web ──fetch──▶ apps/cms ──▶ strapi-kit
+                                                          ▲
+                                       packages/shared-content (fixtures)
 ```
 
 | Layer | May import | Never imports |
 | --- | --- | --- |
 | pages, components | `cms` client, `lib/cms/types`, core helpers | adapter package |
 | client, block modules | adapter package | — |
-| adapter package | core | site code, UI components |
+| adapter / astro package | core | site code |
 | core | nothing | anything |
 
 ## Template scope
@@ -39,71 +39,65 @@ Everything else (posts, heroes, forms, …) is per project.
 
 ---
 
-## Target: platform packages
+## Platform packages
 
-> **Status: target, not yet implemented.** Goal: one change in a package
-> reaches every site through a version bump, not a re-implementation per site.
+> One change in a package reaches every site through a version bump, not a
+> re-implementation per site. This repo is the platform repo; `apps/` is the
+> reference site and the starting point for new ones.
 
 ### Roles
 
-| Package | Responsibility | Knows |
-| --- | --- | --- |
-| **core** | Domain types, block contract, repository interface, `llms.txt`, JSON-LD | nothing |
-| **cms-adapter** | Fetching, retry, reference resolution, media URLs | core |
-| **frontend-integration** | Routes, block rendering, consent, analytics, SEO head | core |
-| **cms-plugin** | Base content types, permissions, seeding, rebuild trigger | core |
-| **blocks** | Library of reusable blocks | core |
-| **deploy** | Reusable CI workflows, server scripts | — |
-| **site** | Config, design, content, site-only blocks | all of the above |
+| Role | Package | Responsibility | Knows |
+| --- | --- | --- | --- |
+| core | `site-core` | Domain types, block contract, repository interface, `llms.txt`, JSON-LD | nothing |
+| cms-adapter | `cms-strapi` | Fetching, retry, reference resolution, media URLs, `defineBlock` | core |
+| frontend-integration | `astro` | Block rendering, consent store + banner/gate behaviour, analytics | core |
+| cms-plugin | `strapi-kit` | Permissions, one-time seeding, rebuild trigger | — |
+| deploy | `.github/workflows/deploy-*.yml` | Reusable CMS and site deploys | — |
+| blocks | — *(not yet)* | Library of reusable blocks | core |
+| site | `apps/*` | Config, design, copy, content, blocks, registry | all of the above |
 
 ```
-core ◀── cms-adapter, frontend-integration, cms-plugin, blocks ◀── site
+core ◀── cms-adapter, frontend-integration ◀── site ──▶ cms-plugin, deploy
 ```
 
 ### Rules
 
-1. **Packages never import from a site.** Site specifics enter only as config or block lists.
+1. **Packages never import from a site.** Site specifics enter only as config, props or the block registry.
 2. **core knows no frontend framework and no CMS.**
-3. **No design in packages.** Mechanics and overridable, unstyled components only. Layout, styles and visible copy belong to the site.
+3. **No design in packages.** Behaviour and unstyled mechanics only. Layout, styles and visible copy belong to the site.
 4. **Packages never read `PUBLIC_*` env.** The site reads its committed `.env.production` and passes values in (CLAUDE.md §3).
 5. **No per-site branches in packages.** No `if (site === …)`.
-6. **Placement:** one site needs it → site. Two or more → package (config option or block).
-7. **The block list is the single registry.** Frontend and CMS receive the same list.
+6. **Placement:** one site needs it → site. Two or more → package (option, prop or block).
+7. **The block registry is the single source.** Adapter, renderer, `llms.txt` and JSON-LD all read it.
 
 ### Block contract
 
-A block is **one self-contained unit**. Platform code iterates over registered
-blocks and never names a specific block type.
+A block is **one self-contained unit**. Platform code iterates over the
+registry and never names a block type.
 
 | Field | Purpose |
 | --- | --- |
-| `type` | Domain discriminator |
-| CMS schema + component id | Structure in the CMS |
-| `map` | CMS response → domain block |
+| `cms` | CMS side: component id, `populate`, response → domain (`map`) |
 | `component` | Rendering |
 | `llms` | Contribution to `llms.txt` (required; `[]` is a valid answer) |
-| `schema` *(optional)* | JSON-LD contribution |
+| `jsonLd` *(optional)* | JSON-LD contribution |
 
-Every field is required by the type, so a half-registered block cannot compile.
+The registry is typed over the site's `Block` union: a missing entry or a
+missing required field does not compile.
 
 ### Distribution
 
-- Packages live in their own repo, are versioned with semver, and are published privately.
-- Sites pin versions. Automated update PRs per site.
-- Roll out to a pilot site first, then to the rest.
-- Breaking change → migration note or codemod.
+- All packages share **one version** (lockstep): `scripts/set-version.mjs`, tag `vX.Y.Z`, `release.yml` publishes to npm.
+- Sites pin that version in `package.json` **and** in `uses: …/deploy-*.yml@vX.Y.Z`. Updating a site = changing one number in both places.
+- Roll out to a pilot site first, then to the rest. Automated update PRs (Renovate) cover both.
+- Breaking change → migration note in the release; codemod when mechanical.
 
-### Open question
+### Not in packages (yet)
 
-- Can a CMS plugin register block components from a package at runtime? If not, generate the schema files into the CMS app before its build (generated output, not committed).
-
-### Migration order
-
-1. deploy
-2. cms-plugin (permissions, seed, rebuild)
-3. Block contract, introduced inside the template first ✓ (CMS schemas still live in the CMS app)
-4. core, cms-adapter, frontend-integration
-5. Sites, one at a time
+- **CMS schemas** (content types, block components) live in the site's CMS app. A package cannot ship them without either a runtime registration (unverified for Strapi 5) or a generate-before-build step.
+- **Routes** (`[...slug]`, `llms.txt`, `robots.txt`) are thin site files calling package functions.
+- **Block library.** Blocks carry design; a shared library needs a split into shared mechanics + site component first (rule 3).
 
 ---
 

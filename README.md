@@ -13,6 +13,11 @@ apps/web  ──▶  CmsRepository  ──▶  adapter  ──▶  apps/cms (Str
    static      (domain model)       adapter        + dynamic zones
 ```
 
+**One platform, many sites.** The shared mechanics ship as versioned npm
+packages; a site keeps only its design, content model and configuration. A
+fix lands once and reaches every site through a version bump — see
+[Keeping sites up to date](#keeping-sites-up-to-date).
+
 ---
 
 ## Why this exists
@@ -100,8 +105,35 @@ Then work through:
 - [ ] The fixtures in `packages/shared-content/data/` — and your real content
       model, replacing the `rich-text` example block
 - [ ] Fill in the project header in [`CLAUDE.md`](CLAUDE.md) §0
-- [ ] Pick a deployment target and delete the shipping steps you don't use in
-      `.github/workflows/deploy-web.yml`
+- [ ] Pick a deployment target and set the repository variables `deploy.yml`
+      passes on (`CMS_TARGET`, `DEPLOY_TARGET`, `STRAPI_URL`, …)
+
+---
+
+## Keeping sites up to date
+
+This repo is the platform. `apps/` is the reference site; a customer site is
+its own repository with the same layout, depending on the published packages:
+
+```jsonc
+// apps/web/package.json, apps/cms/package.json
+"@janmarkuslanger/site-core": "0.2.0",
+"@janmarkuslanger/cms-strapi": "0.2.0",
+"@janmarkuslanger/astro": "0.2.0",
+"@janmarkuslanger/strapi-kit": "0.2.0"
+```
+
+```yaml
+# .github/workflows/deploy.yml — copy this repo's file, then point it at the tag
+uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-cms.yml@v0.2.0
+uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-web.yml@v0.2.0
+```
+
+All packages share one version, so updating a site means changing that one
+number everywhere (Renovate can open the PR). Releasing:
+`node scripts/set-version.mjs X.Y.Z`, commit, tag `vX.Y.Z`, push — the
+release workflow publishes to npm. Details and rules:
+[`docs/architecture.md`](docs/architecture.md#platform-packages).
 
 ---
 

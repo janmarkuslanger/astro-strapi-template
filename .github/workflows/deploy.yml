@@ -3,6 +3,16 @@ name: Deploy
 # One pipeline for both halves, because their order matters: the frontend is
 # built statically against the CMS, so a page using a new block only builds
 # once Strapi knows that component. The web job therefore always waits.
+#
+# This file is the CALLER, and the template for a site's own deploy.yml. The
+# logic lives in the reusable workflows; a site references them by tag:
+#   uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-cms.yml@v1
+# (this repo uses ./ paths because it is the platform repo itself).
+#
+# Values come from repository variables and secrets and are passed
+# explicitly — `secrets: inherit` does not cross organizations. None of them
+# is PUBLIC_*: public build config lives in apps/web/.env.production
+# (CLAUDE.md §3).
 
 on:
   push:
@@ -16,53 +26,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      cms: ${{ steps.filter.outputs.cms }}
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-
-      - name: Did anything the server builds from change?
-        id: filter
-        env:
-          BEFORE: ${{ github.event.before }}
-        run: |
-          # Anything but a regular push (manual run, first push, force push)
-          # deploys the CMS — cheaper than guessing wrong.
-          if [ "${{ github.event_name }}" != "push" ] \
-             || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
-            echo "cms=true" >> "$GITHUB_OUTPUT"; exit 0
-          fi
-          # The cms job's rsync is the ONLY way the repo reaches the server —
-          # and a publish-triggered rebuild (REBUILD_STRATEGY=script) builds the
-          # site from that copy. Skip it for a frontend-only push and the next
-          # publish silently replaces the new release with one built from stale
-          # source. So this is a deny-list of files that never matter on the
-          # server, not an allow-list of CMS paths: a new root config file must
-          # not be able to reopen the gap.
-          if git diff --name-only "$BEFORE" "${{ github.sha }}" \
-             | grep -vE '^(\.github/|docs/|README\.md$|CLAUDE\.md$|LICENSE$)' \
-             | grep -q .; then
-            echo "cms=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "cms=false" >> "$GITHUB_OUTPUT"
-          fi
-
   cms:
-    # Only needed when self-hosting the CMS. On Strapi Cloud, delete this job
-    # and drop the `needs: cms` below.
-    needs: changes
-    if: needs.changes.outputs.cms == 'true' && vars.CMS_TARGET == 'self-hosted'
+    # Only when self-hosting the CMS. On Strapi Cloud, delete this job and
+    # drop the `needs: cms` below. Skips itself when nothing the server builds
+    # from changed.
+    if: vars.CMS_TARGET == 'self-hosted'
     uses: ./.github/workflows/deploy-cms.yml
-    secrets: inherit
+    with:
+      app-dir: ${{ vars.APP_DIR }}
+      shared-dir: ${{ vars.SHARED_DIR }}
+      service-name: ${{ vars.SERVICE_NAME }}
+      cms-url: ${{ vars.CMS_URL }}
+      web-root: ${{ vars.WEB_ROOT }}
+    secrets:
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
 
   web:
-    # Runs after the CMS is up — also when the cms job was skipped because
-    # nothing it ships changed, but never after a FAILED CMS deploy: building
-    # the frontend against a half-deployed CMS is exactly what this avoids.
-    needs: [changes, cms]
+    # Runs after the CMS is up — also when the cms job was skipped, but never
+    # after a FAILED CMS deploy: building the frontend against a half-deployed
+    # CMS is exactly what this avoids.
+    needs: cms
     if: always() && needs.cms.result != 'failure' && needs.cms.result != 'cancelled'
     uses: ./.github/workflows/deploy-web.yml
-    secrets: inherit
+    with:
+      strapi-url: ${{ vars.STRAPI_URL }}
+      deploy-target: ${{ vars.DEPLOY_TARGET }}
+      web-root: ${{ vars.WEB_ROOT }}
+      site-url: ${{ vars.SITE_URL }}
+    secrets:
+      STRAPI_TOKEN: ${{ secrets.STRAPI_TOKEN }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}

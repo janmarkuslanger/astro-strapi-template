@@ -1,0 +1,58 @@
+name: Release
+
+# Publishes every platform package to npm when a version tag is pushed.
+#
+#   node scripts/set-version.mjs 0.2.0 && npm install
+#   git commit -am "Release 0.2.0" && git tag v0.2.0 && git push --follow-tags
+#
+# All packages share one version (lockstep), and sites reference the reusable
+# workflows by the same tag — one number describes a site's platform state.
+#
+# Requires the NPM_TOKEN secret (an npm automation token with publish rights
+# for the @janmarkuslanger scope).
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+  id-token: write # npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Tag and package versions must agree
+        run: |
+          set -euo pipefail
+          want="${GITHUB_REF_NAME#v}"
+          for dir in packages/core packages/cms-strapi packages/astro packages/strapi-kit; do
+            have="$(node -p "require('./$dir/package.json').version")"
+            if [ "$have" != "$want" ]; then
+              echo "::error::$dir is $have, tag says $want. Run scripts/set-version.mjs first."
+              exit 1
+            fi
+          done
+
+      - run: npm ci
+
+      - run: npm run build:packages
+
+      # Dependencies first, so a dependent is never on npm before what it needs.
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          for dir in packages/core packages/cms-strapi packages/astro packages/strapi-kit; do
+            npm publish --workspace "$dir" --provenance --access public
+          done

@@ -26,4 +26,14 @@ concurrency:
 jobs:
   web:
     uses: ./.github/workflows/deploy-web.yml
-    secrets: inherit
+    with:
+      strapi-url: ${{ vars.STRAPI_URL }}
+      deploy-target: ${{ vars.DEPLOY_TARGET }}
+      web-root: ${{ vars.WEB_ROOT }}
+      site-url: ${{ vars.SITE_URL }}
+    secrets:
+      STRAPI_TOKEN: ${{ secrets.STRAPI_TOKEN }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}

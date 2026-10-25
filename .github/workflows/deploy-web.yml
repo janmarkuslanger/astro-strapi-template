@@ -2,21 +2,46 @@ name: Deploy frontend
 
 # Builds the static site against the live CMS.
 #
-# Reusable on purpose: the same steps run after a code deploy and after a
-# manual/dispatched content rebuild. Callers share a concurrency group so two
-# runs can never ship over each other.
+# REUSABLE ACROSS REPOSITORIES: sites call it as
+#   uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-web.yml@<tag>
+# and pass every value explicitly (secrets declared below; `secrets: inherit`
+# only works within one organization). It checks out and builds the CALLER's
+# repository. The same steps run after a code deploy and after a content
+# rebuild; callers share a concurrency group so two runs never ship over each
+# other.
 #
 # TARGET-AGNOSTIC: everything above "Ship" is identical for every hosting
-# target. Pick one of the shipping steps at the bottom and delete the rest.
+# target. `deploy-target` picks the shipping step; leave it empty when the
+# host builds by itself (Vercel/Netlify/Cloudflare) and this is only a check.
 
 on:
   workflow_call:
     inputs:
       strapi-url:
-        description: Build-time CMS address
+        description: Build-time CMS address (never reaches the browser)
+        required: true
+        type: string
+      deploy-target:
+        description: "'ssh' to upload a release over SSH; empty to only build and verify"
         required: false
         type: string
         default: ""
+      web-root:
+        description: "deploy-target ssh: web root on the server (releases/ + current symlink)"
+        required: false
+        type: string
+        default: ""
+      site-url:
+        description: Public site URL for the health check; empty skips it
+        required: false
+        type: string
+        default: ""
+    secrets:
+      STRAPI_TOKEN: { required: false }
+      SSH_PRIVATE_KEY: { required: false }
+      SSH_KNOWN_HOSTS: { required: false }
+      SSH_USER: { required: false }
+      SSH_HOST: { required: false }
 
 env:
   # Where the built site ends up. Same for every target.
@@ -52,7 +77,7 @@ jobs:
       # legitimately differ per build path.
       - name: Build the site against the CMS
         env:
-          STRAPI_URL: ${{ inputs.strapi-url || vars.STRAPI_URL }}
+          STRAPI_URL: ${{ inputs.strapi-url }}
           STRAPI_TOKEN: ${{ secrets.STRAPI_TOKEN }}
         run: npm run build:web
 
@@ -78,17 +103,15 @@ jobs:
           fi
 
       # ------------------------------------------------------------------
-      # Ship — keep ONE of these.
+      # Ship — selected by `deploy-target`.
       # ------------------------------------------------------------------
 
-      # Target: Vercel / Netlify / Cloudflare Pages
-      # Usually you do not need this workflow at all — point the platform at
-      # the repo and let it build. Keep the build+verify steps above as a CI
-      # check, and delete everything below.
+      # Target: Vercel / Netlify / Cloudflare Pages — leave deploy-target
+      # empty: the platform builds by itself, this run is only the check.
 
       # Target: any static host over SSH (vServer, shared hosting with rsync)
       - name: Set up SSH
-        if: vars.DEPLOY_TARGET == 'ssh'
+        if: inputs.deploy-target == 'ssh'
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
@@ -97,13 +120,13 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
       - name: Upload as a new release and switch atomically
-        if: vars.DEPLOY_TARGET == 'ssh'
+        if: inputs.deploy-target == 'ssh'
         run: |
           set -euo pipefail
           # One directory per run: a content rebuild carries the same commit as
           # the deploy before it, so the sha alone would collide.
           RELEASE="$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA::7}"
-          ROOT="${{ vars.WEB_ROOT }}"
+          ROOT="${{ inputs.web-root }}"
 
           ssh -i ~/.ssh/deploy_key "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
             "mkdir -p $ROOT/releases/$RELEASE"
@@ -125,10 +148,10 @@ jobs:
           REMOTE
 
       - name: Health check
-        if: vars.SITE_URL != ''
+        if: inputs.site-url != ''
         run: |
           for i in $(seq 1 10); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.SITE_URL }}" || true)
+            code=$(curl -s -o /dev/null -w "%{http_code}" "${{ inputs.site-url }}" || true)
             [ "$code" = "200" ] && { echo "Site is responding."; exit 0; }
             echo "Attempt $i: HTTP $code — waiting …"
             sleep 5

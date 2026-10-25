@@ -15,5 +15,5 @@
   },
   "devDependencies": { "typescript": "^5.6.3" },
   "publishConfig": { "access": "public" },
-  "repository": { "type": "git", "url": "https://github.com/janmarkuslanger/astro-strapi-template.git", "directory": "packages/cms-strapi" }
+  "repository": { "type": "git", "url": "git+https://github.com/janmarkuslanger/astro-strapi-template.git", "directory": "packages/cms-strapi" }
 }
