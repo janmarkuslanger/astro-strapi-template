@@ -30,10 +30,10 @@ export function buildLlmsTxt<B extends BaseBlock>(
 
   // Navigation order is the site's own idea of importance — reuse it instead
   // of inventing a ranking.
+  // "/" is the home page, whose slug is "home" (see the href below).
+  const slugOf = (href: string) => href.replace(/^\/|\/$/g, "") || "home";
   const rank = (slug: string) => {
-    const i = global.navigation.findIndex(
-      (n) => n.href.replace(/^\/|\/$/g, "") === slug
-    );
+    const i = global.navigation.findIndex((n) => slugOf(n.href) === slug);
     return i === -1 ? Number.MAX_SAFE_INTEGER : i;
   };
   const ordered = [...pages].sort((a, b) => rank(a.slug) - rank(b.slug));
