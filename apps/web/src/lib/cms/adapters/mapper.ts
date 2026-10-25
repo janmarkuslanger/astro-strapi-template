@@ -1,19 +1,55 @@
 import { marked } from "marked";
-import { BLOCK_COMPONENTS, REFERENCE_COMPONENT } from "../types";
 import type { Block, ImageAsset, Link, Page, Seo, SiteGlobal } from "../types";
 
 /** Resolves a shared-block id into its blocks. Supplied by the adapter. */
 export type BlockResolver = (id: string) => Block[];
 
-const B = BLOCK_COMPONENTS;
+/**
+ * Component id of the reference block. Adapter-internal: references are
+ * resolved here and never reach the domain model.
+ */
+export const REFERENCE_COMPONENT = "blocks.reference";
+
+/** Helpers a block's `map` gets, so no block re-implements URL or Markdown handling. */
+export interface MapContext {
+  image(raw: any): ImageAsset | undefined;
+  markdown(value: unknown): string;
+}
+
+/** Strapi side of a block definition (see lib/blocks.ts). */
+export interface StrapiBlockMapping<B extends Block> {
+  /** Strapi component id, e.g. "blocks.hero". */
+  component: string;
+  /**
+   * Populate fragment after `populate[blocks][on][<component>]`. Defaults to
+   * `[populate]=*` (one level). Blocks with deeper nesting (items with images,
+   * links in a list) must spell it out, or those fields arrive empty.
+   */
+  populate?: string;
+  /** Strapi component → domain block, without `type` (added by the mapper). */
+  map(raw: any, ctx: MapContext): Omit<B, "type">;
+}
+
+/** Strapi mappings keyed by domain block type. */
+export type StrapiBlockMappings = Record<string, StrapiBlockMapping<any>>;
+
+/** Populate query for a dynamic zone holding these blocks plus references. */
+export function blockPopulate(mappings: StrapiBlockMappings): string {
+  return [
+    ...Object.values(mappings).map(
+      (m) => `populate[blocks][on][${m.component}]${m.populate ?? "[populate]=*"}`
+    ),
+    `populate[blocks][on][${REFERENCE_COMPONENT}][populate]=block`,
+  ].join("&");
+}
 
 /**
  * Media URLs arrive relative from Strapi ("/uploads/x.jpg"). They must become
  * absolute against the PUBLIC base, not the build-time base — the visitor's
  * browser loads them, not the build. See CLAUDE.md §4.
  *
- * Unused by the example block, but kept because the first image field you add
- * will need it, and getting this wrong is the classic production-only bug.
+ * Offered to every block's `map` as `ctx.image`, so no block can get this
+ * wrong — it is the classic production-only bug.
  */
 export function mapImage(raw: any, mediaUrl: string): ImageAsset | undefined {
   if (!raw) return undefined;
@@ -44,40 +80,39 @@ function mapSeo(raw: any, fallbackTitle: string): Seo {
 }
 
 /**
- * Turns Strapi's dynamic zone into domain blocks.
+ * Turns Strapi's dynamic zone into domain blocks, using the registered
+ * mappings.
  *
  * Unknown component ids are SKIPPED, not thrown on: a block added in the CMS
- * before the frontend knows it must never take the site down. Add a `case` per
- * block — step 4 of docs/architecture.md.
+ * before the frontend knows it must never take the site down.
  */
 export function mapBlocks(
   raw: any[],
   mediaUrl: string,
+  mappings: StrapiBlockMappings,
   resolve?: BlockResolver
 ): Block[] {
+  const ctx: MapContext = {
+    image: (value) => mapImage(value, mediaUrl),
+    markdown: md,
+  };
+  const byComponent = new Map(
+    Object.entries(mappings).map(([type, m]) => [m.component, { type, m }])
+  );
   const blocks: Block[] = [];
 
   for (const item of raw ?? []) {
-    switch (item.__component) {
-      case B.richText:
-        blocks.push({
-          type: "richText",
-          heading: item.heading ?? undefined,
-          html: md(item.body),
-        });
-        break;
-
-      // Resolved here, never surfaced: the domain model has no reference type,
-      // so pages cannot tell a shared block from an inline one.
-      case REFERENCE_COMPONENT: {
-        const id = item.block?.documentId ?? item.block?.id;
-        if (id && resolve) blocks.push(...resolve(String(id)));
-        break;
-      }
-
-      default:
-        break;
+    // Resolved here, never surfaced: the domain model has no reference type,
+    // so pages cannot tell a shared block from an inline one.
+    if (item.__component === REFERENCE_COMPONENT) {
+      const id = item.block?.documentId ?? item.block?.id;
+      if (id && resolve) blocks.push(...resolve(String(id)));
+      continue;
     }
+
+    const entry = byComponent.get(item.__component);
+    if (!entry) continue;
+    blocks.push({ ...entry.m.map(item, ctx), type: entry.type } as Block);
   }
 
   return blocks;
@@ -86,13 +121,14 @@ export function mapBlocks(
 export function mapPage(
   entry: any,
   mediaUrl: string,
+  mappings: StrapiBlockMappings,
   resolve?: BlockResolver
 ): Page {
   return {
     slug: entry.slug ?? "",
     title: entry.title ?? "",
     seo: mapSeo(entry.seo, entry.title ?? ""),
-    blocks: mapBlocks(entry.blocks ?? [], mediaUrl, resolve),
+    blocks: mapBlocks(entry.blocks ?? [], mediaUrl, mappings, resolve),
   };
 }
 

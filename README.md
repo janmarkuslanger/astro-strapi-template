@@ -114,9 +114,11 @@ apps/
     .env.production       committed: public build config (CLAUDE.md §3)
     src/lib/cms/          repository.ts · client.ts · adapters/
     src/lib/consent*.ts   service-agnostic consent store + registry
-    src/lib/llms.ts       llms.txt, with a compiler-enforced block switch
+    src/blocks/           one folder per block + the registry (index.ts)
+    src/lib/blocks.ts     block contract (defineBlock, BlockRegistry)
+    src/lib/llms.ts       llms.txt, from each block's `llms`
     src/lib/seo.ts        JSON-LD derived from blocks
-    src/components/       ConsentBanner, ConsentGate, blocks/
+    src/components/       ConsentBanner, ConsentGate, BlockRenderer
   cms/                    Strapi 5
     config/               server, database, middlewares, plugins
     src/index.ts          bootstrap: public permissions, seed, rebuild trigger
@@ -146,21 +148,20 @@ docs/
 
 ## Adding a content block
 
-Five steps; two are enforced by the compiler so they cannot be forgotten. Full
-detail in [`docs/architecture.md`](docs/architecture.md).
+A block is one self-contained definition. Full detail in
+[`docs/architecture.md`](docs/architecture.md).
 
 1. Add the type to the `Block` union in `packages/shared-types`.
-2. Add its id to `BLOCK_COMPONENTS` — *the build fails without this.*
-3. Create the Strapi component and register it in the dynamic zones.
-4. Add a `case` to the mapper and a populate entry to the adapter.
-5. Build the Astro component, register it in `BlockRenderer`, and add a `case`
-   to `llms.ts` — *the build fails without this one too.*
+2. Create `apps/web/src/blocks/<name>/` with `defineBlock({ strapi, component, llms })`
+   and the component.
+3. Register it in `apps/web/src/blocks/index.ts` — *the build fails without this.*
+4. Create the Strapi component and register it in the dynamic zones.
 
-Step 4's populate entry is the one with no safety net: forget it and the block
-renders with empty nested fields. If a new block looks half-filled, start there.
+Nested fields deeper than one level need an explicit `strapi.populate`, or they
+arrive empty. If a new block looks half-filled, start there.
 
-The shipped `rich-text` block is a worked example of all five — read it once,
-then copy the shape for your own.
+`apps/web/src/blocks/rich-text` is a worked example — read it once, then copy
+the shape for your own.
 
 ---
 

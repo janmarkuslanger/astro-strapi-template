@@ -102,7 +102,7 @@ Every field is required by the type, so a half-registered block cannot compile.
 
 1. deploy
 2. cms-plugin (permissions, seed, rebuild)
-3. Block contract, introduced inside the template first
+3. Block contract, introduced inside the template first ✓ (CMS schemas still live in the CMS app)
 4. core, cms-adapter, frontend-integration
 5. Sites, one at a time
 
@@ -110,15 +110,14 @@ Every field is required by the type, so a half-registered block cannot compile.
 
 ## Adding a block (current)
 
-Steps 2 and 5 are compiler-enforced. Step 4 is not.
+Step 3 is compiler-enforced. Step 4 is not.
 
 1. **Domain type**: interface in `shared-types`, added to the `Block` union.
-2. **Block id**: entry in `BLOCK_COMPONENTS` (`satisfies` enforces it).
-3. **CMS component**: `apps/cms/src/components/blocks/<name>.json`, added to the dynamic zones of `page` and, if reusable, `shared-block`.
-4. **Adapter**: `case` in `mapper.ts` + populate entry in `strapi.ts`. Without populate, nested fields arrive empty. Check this first when a block looks half-filled.
-5. **Rendering + `llms.txt`**: component in `components/blocks/`, `case` in `BlockRenderer`, `case` in `llms.ts` (a `never` branch enforces it).
+2. **Block module**: `apps/web/src/blocks/<name>/` containing `index.ts` (`defineBlock`) and the component. `defineBlock` requires `strapi`, `component` and `llms`; `jsonLd` is optional.
+3. **Register** in `apps/web/src/blocks/index.ts`. A union member without an entry fails the build.
+4. **CMS component**: `apps/cms/src/components/blocks/<name>.json`, added to the dynamic zones of `page` and, if reusable, `shared-block`.
 
-Optional: JSON-LD in `seo.ts`.
+Nested relations or media deeper than one level need an explicit `strapi.populate`, otherwise they arrive empty. Check this first when a block looks half-filled.
 
 ## Adding a content type
 
@@ -141,4 +140,4 @@ Optional: JSON-LD in `seo.ts`.
 
 **SEO / GEO**
 - JSON-LD is derived from block types, not from slugs.
-- `llms.txt` is generated from the domain model and cannot fall behind (step 5).
+- `llms.txt` is generated from the domain model and cannot fall behind (`llms` is required per block).

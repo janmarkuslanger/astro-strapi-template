@@ -7,6 +7,7 @@
  */
 import BaseLayout from "../layouts/BaseLayout.astro";
 import BlockRenderer from "../components/blocks/BlockRenderer.astro";
+import { BLOCKS } from "../blocks";
 import { cms } from "../lib/cms/client";
 import { pageSchemas } from "../lib/seo";
 
@@ -27,7 +28,7 @@ const siteUrl = String(Astro.site ?? "").replace(/\/$/, "");
   global={global}
   title={page.seo.title || page.title}
   description={page.seo.description}
-  schemas={pageSchemas(page, global, siteUrl)}
+  schemas={pageSchemas(page, global, siteUrl, BLOCKS)}
 >
   <BlockRenderer blocks={page.blocks} />
 </BaseLayout>

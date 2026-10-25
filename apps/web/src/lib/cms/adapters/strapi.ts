@@ -1,34 +1,35 @@
-import { BLOCK_COMPONENTS, REFERENCE_COMPONENT } from "../types";
 import type { CmsRepository } from "../repository";
 import type { Block, Page, SiteGlobal } from "../types";
-import { mapBlocks, mapGlobal, mapPage, type BlockResolver } from "./mapper";
-
-const B = BLOCK_COMPONENTS;
-
-/**
- * Populate query so Strapi ships every component and media file of the dynamic
- * zone.
- *
- * Block ids come from shared-types — the single source. A block MISSING an
- * entry here still renders, but its nested fields (items, images, links)
- * arrive empty. There is no compiler check for this one, so when a new block
- * looks half-filled, start here. Step 4 of docs/architecture.md.
- */
-const BLOCK_POPULATE = [
-  `populate[blocks][on][${B.richText}][populate]=*`,
-  `populate[blocks][on][${REFERENCE_COMPONENT}][populate]=block`,
-].join("&");
+import {
+  blockPopulate,
+  mapBlocks,
+  mapGlobal,
+  mapPage,
+  type BlockResolver,
+  type StrapiBlockMappings,
+} from "./mapper";
 
 export class StrapiCmsAdapter implements CmsRepository {
   /** Cache so a page with five references costs one extra request, not five. */
   private sharedBlocks: Map<string, Block[]> | null = null;
 
+  /**
+   * Populate query so Strapi ships every component and media file of the
+   * dynamic zone. Derived from the registered blocks; a block whose nested
+   * fields arrive empty needs its own `populate` (see StrapiBlockMapping).
+   */
+  private readonly populate: string;
+
   constructor(
     private readonly url: string,
-    private readonly token?: string,
-    /** Public base for media/form URLs — see client.ts. Defaults to `url`. */
-    private readonly mediaUrl: string = url
-  ) {}
+    private readonly token: string | undefined,
+    /** Public base for media/form URLs — see client.ts. */
+    private readonly mediaUrl: string,
+    /** Strapi side of every registered block, keyed by domain type. */
+    private readonly blocks: StrapiBlockMappings
+  ) {
+    this.populate = blockPopulate(blocks);
+  }
 
   /**
    * Retries connection failures and gateway statuses with a short backoff.
@@ -85,11 +86,11 @@ export class StrapiCmsAdapter implements CmsRepository {
    */
   private async blockResolver(): Promise<BlockResolver> {
     if (!this.sharedBlocks) {
-      const json = await this.fetchJson(`/api/shared-blocks?${BLOCK_POPULATE}`);
+      const json = await this.fetchJson(`/api/shared-blocks?${this.populate}`);
       this.sharedBlocks = new Map(
         (json.data ?? []).map((entry: any) => [
           String(entry.documentId ?? entry.id),
-          mapBlocks(entry.blocks ?? [], this.mediaUrl),
+          mapBlocks(entry.blocks ?? [], this.mediaUrl, this.blocks),
         ])
       );
     }
@@ -105,17 +106,17 @@ export class StrapiCmsAdapter implements CmsRepository {
   }
 
   async listPages(): Promise<Page[]> {
-    const json = await this.fetchJson(`/api/pages?${BLOCK_POPULATE}`);
+    const json = await this.fetchJson(`/api/pages?${this.populate}`);
     const resolve = await this.blockResolver();
-    return (json.data ?? []).map((e: any) => mapPage(e, this.mediaUrl, resolve));
+    return (json.data ?? []).map((e: any) => mapPage(e, this.mediaUrl, this.blocks, resolve));
   }
 
   async getPage(slug: string): Promise<Page | null> {
     const json = await this.fetchJson(
-      `/api/pages?filters[slug][$eq]=${encodeURIComponent(slug)}&${BLOCK_POPULATE}`
+      `/api/pages?filters[slug][$eq]=${encodeURIComponent(slug)}&${this.populate}`
     );
     const entry = (json.data ?? [])[0];
     if (!entry) return null;
-    return mapPage(entry, this.mediaUrl, await this.blockResolver());
+    return mapPage(entry, this.mediaUrl, this.blocks, await this.blockResolver());
   }
 }

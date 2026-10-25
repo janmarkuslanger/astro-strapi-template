@@ -1,5 +1,7 @@
+import { BLOCKS } from "../../blocks";
 import type { CmsRepository } from "./repository";
 import { StrapiCmsAdapter } from "./adapters/strapi";
+import type { StrapiBlockMappings } from "./adapters/mapper";
 
 /**
  * Single entry point for all content access:
@@ -30,9 +32,16 @@ if (!url) {
  *
  * Conflating them ships <img src="http://127.0.0.1:1337/uploads/…"> to
  * everyone. It looks fine locally and is broken for every real visitor.
+ *
+ * The adapter only gets the Strapi side of each block, never the components.
  */
+const strapiBlocks: StrapiBlockMappings = Object.fromEntries(
+  Object.entries(BLOCKS).map(([type, definition]) => [type, definition.strapi])
+);
+
 export const cms: CmsRepository = new StrapiCmsAdapter(
   url,
   import.meta.env.STRAPI_TOKEN,
-  import.meta.env.PUBLIC_STRAPI_URL || url
+  import.meta.env.PUBLIC_STRAPI_URL || url,
+  strapiBlocks
 );

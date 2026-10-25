@@ -67,20 +67,23 @@ The template ships **one** example block (`rich-text`) and no content model —
 blogs, heroes, pricing tables and forms differ per project, so they are yours
 to add. What the template guarantees is that adding one cannot go half-done.
 
-Adding a block type means touching five places. Two of them are enforced by
-TypeScript, on purpose, because forgetting either causes a silent bug:
+A block is **one self-contained definition** in `apps/web/src/blocks/<name>/`:
+Strapi mapping, component, `llms.txt` contribution, optional JSON-LD. The
+adapter, renderer, `llms.txt` and JSON-LD iterate over the registry and never
+name a block type.
 
 ```ts
-// packages/shared-types — BLOCK_COMPONENTS must cover every Block["type"]
-export const BLOCK_COMPONENTS = {
-  richText: "blocks.rich-text",
+// apps/web/src/blocks/index.ts — typed so every Block["type"] needs an entry
+export const BLOCKS: BlockRegistry = {
+  richText,
   // …
-} as const satisfies Record<Block["type"], string>;
+};
 ```
 
-A missing entry breaks the build. Same for `src/lib/llms.ts`, which has a
-`never` branch so a new block must explicitly declare what it contributes to
-`llms.txt` — often `[]`, but the decision has to be made rather than forgotten.
+A missing entry breaks the build, and so does a definition without `llms` —
+often `[]`, but the decision has to be made rather than forgotten. Platform
+code must not regain per-block `switch`es; that is what made blocks touch five
+files.
 
 The full checklist is in [`docs/architecture.md`](docs/architecture.md).
 

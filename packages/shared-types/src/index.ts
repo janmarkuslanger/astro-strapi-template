@@ -13,8 +13,8 @@
  *   RichTextBlock ONE example block               — delete or replace it
  *
  * Blog posts, categories, heroes, FAQs, pricing tables and so on are product
- * decisions. Add the ones your project needs; the five steps are in
- * docs/architecture.md, and two of them are enforced by the compiler.
+ * decisions. Add the ones your project needs: a type in the `Block` union here,
+ * plus a block definition in apps/web/src/blocks (docs/architecture.md).
  * ─────────────────────────────────────────────────────────────────────────
  */
 
@@ -51,30 +51,14 @@ export interface RichTextBlock {
   html: string;
 }
 
-/** Add your project's blocks to this union. */
-export type Block = RichTextBlock;
-
 /**
- * The `__component` identifiers Strapi uses — the single source for the mapper
- * and the populate query.
+ * Add your project's blocks to this union. Each member needs a definition in
+ * the block registry (apps/web/src/blocks) — the build fails without one.
  *
- * `satisfies Record<Block["type"], string>` is load-bearing: adding a block to
- * the union above without adding it here fails the build. That is deliberate —
- * a block registered in only one of two places is a silent bug, and silent bugs
- * in a content pipeline surface as "why is this section empty?" weeks later.
- *
- * Note `blocks.reference` is NOT here: references are resolved inside the
- * adapter and never reach the domain model.
+ * There is no `reference` member: references are resolved inside the adapter
+ * and never reach the domain model.
  */
-export const BLOCK_COMPONENTS = {
-  richText: "blocks.rich-text",
-} as const satisfies Record<Block["type"], string>;
-
-export type BlockComponent =
-  (typeof BLOCK_COMPONENTS)[keyof typeof BLOCK_COMPONENTS];
-
-/** Component id of the reference block — adapter-internal, never in `Block`. */
-export const REFERENCE_COMPONENT = "blocks.reference";
+export type Block = RichTextBlock;
 
 /* --------------------------------------------------------------- entities */
 

@@ -1,16 +1,15 @@
 ---
 /**
- * Maps a domain block to its Astro component.
+ * Renders domain blocks through the block registry. Names no block type.
  *
- * The `default` branch renders NOTHING rather than throwing: an unknown block
- * must never take a page down. Together with the mapper (which already skips
- * unknown Strapi components), a block added in the CMS ahead of the frontend
- * is harmless.
- *
- * Adding a block: import it and add a case. Step 5 of docs/architecture.md.
+ * A block without a definition renders NOTHING rather than throwing: an
+ * unknown block must never take a page down. Together with the mapper (which
+ * already skips unknown Strapi components), a block added in the CMS ahead of
+ * the frontend is harmless.
  */
+import { BLOCKS } from "../../blocks";
+import { definitionFor } from "../../lib/blocks";
 import type { Block } from "../../lib/cms/types";
-import RichText from "./RichText.astro";
 
 interface Props {
   blocks: Block[];
@@ -20,11 +19,7 @@ const { blocks } = Astro.props;
 
 {
   blocks.map((block) => {
-    switch (block.type) {
-      case "richText":
-        return <RichText block={block} />;
-      default:
-        return null;
-    }
+    const Component = definitionFor(BLOCKS, block)?.component as any;
+    return Component ? <Component block={block} /> : null;
   })
 }
