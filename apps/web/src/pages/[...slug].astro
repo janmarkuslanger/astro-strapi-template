@@ -6,10 +6,10 @@
  * The "home" slug renders at "/" so editors do not need a special case.
  */
 import BaseLayout from "../layouts/BaseLayout.astro";
-import BlockRenderer from "@janmarkuslanger/astro/BlockRenderer.astro";
+import BlockRenderer from "@janmarkuslanger/powerhouse-astro/BlockRenderer.astro";
 import { BLOCKS } from "../blocks";
 import { cms } from "../lib/cms/client";
-import { pageSchemas } from "@janmarkuslanger/site-core";
+import { pageSchemas } from "@janmarkuslanger/powerhouse-core";
 
 export async function getStaticPaths() {
   const pages = await cms.listPages();

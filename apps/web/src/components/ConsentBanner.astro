@@ -2,7 +2,7 @@
 /**
  * Generic GDPR consent banner. Renders every service registered in
  * `consent-services.ts` as a checkbox. Markup, styling and copy are the
- * site's; the behaviour comes from `initConsentBanner` (@janmarkuslanger/astro).
+ * site's; the behaviour comes from `initConsentBanner` (@janmarkuslanger/powerhouse-astro).
  *
  * Renders NOTHING when no service is registered — which is the answer to
  * "why is there no banner?" on a site without third-party services, and the
@@ -89,7 +89,7 @@ import { CONSENT_SERVICES } from "../lib/consent-services";
     bindAnalyticsToConsent,
     initConsentBanner,
     trackMailtoClicks,
-  } from "@janmarkuslanger/astro";
+  } from "@janmarkuslanger/powerhouse-astro";
 
   // The measurement id is a build-time value from .env.production — never a
   // gtag snippet in the markup (CLAUDE.md §7).

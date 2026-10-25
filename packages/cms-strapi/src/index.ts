@@ -1,4 +1,4 @@
-import type { BaseBlock, BlockDefinition } from "@janmarkuslanger/site-core";
+import type { BaseBlock, BlockDefinition } from "@janmarkuslanger/powerhouse-core";
 import type { StrapiBlockMapping } from "./mapper.js";
 
 export { StrapiCmsAdapter, type StrapiCmsAdapterOptions } from "./adapter.js";

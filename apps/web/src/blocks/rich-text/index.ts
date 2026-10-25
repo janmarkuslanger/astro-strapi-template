@@ -1,4 +1,4 @@
-import { defineBlock } from "@janmarkuslanger/cms-strapi";
+import { defineBlock } from "@janmarkuslanger/powerhouse-cms-strapi";
 import RichText from "./RichText.astro";
 
 /**

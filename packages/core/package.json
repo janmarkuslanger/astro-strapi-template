@@ -1,5 +1,5 @@
 {
-  "name": "@janmarkuslanger/site-core",
+  "name": "@janmarkuslanger/powerhouse-core",
   "version": "0.1.0",
   "description": "Domain model, block contract, llms.txt and JSON-LD. Knows no framework and no CMS.",
   "license": "MIT",

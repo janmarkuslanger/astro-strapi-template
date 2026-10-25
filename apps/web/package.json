@@ -11,9 +11,9 @@
   "dependencies": {
     "@astrojs/sitemap": "3.6.0",
     "@astrojs/tailwind": "^5.1.2",
-    "@janmarkuslanger/astro": "0.1.0",
-    "@janmarkuslanger/cms-strapi": "0.1.0",
-    "@janmarkuslanger/site-core": "0.1.0",
+    "@janmarkuslanger/powerhouse-astro": "0.1.0",
+    "@janmarkuslanger/powerhouse-cms-strapi": "0.1.0",
+    "@janmarkuslanger/powerhouse-core": "0.1.0",
     "astro": "^4.16.18",
     "tailwindcss": "^3.4.15"
   }

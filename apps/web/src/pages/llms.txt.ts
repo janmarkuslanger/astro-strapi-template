@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { BLOCKS } from "../blocks";
 import { cms } from "../lib/cms/client";
-import { buildLlmsTxt } from "@janmarkuslanger/site-core";
+import { buildLlmsTxt } from "@janmarkuslanger/powerhouse-core";
 
 /**
  * Generated from the CMS at build time, never hand-maintained — a text changed

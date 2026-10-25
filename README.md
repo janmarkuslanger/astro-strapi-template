@@ -117,10 +117,10 @@ its own repository with the same layout, depending on the published packages:
 
 ```jsonc
 // apps/web/package.json, apps/cms/package.json
-"@janmarkuslanger/site-core": "0.2.0",
-"@janmarkuslanger/cms-strapi": "0.2.0",
-"@janmarkuslanger/astro": "0.2.0",
-"@janmarkuslanger/strapi-kit": "0.2.0"
+"@janmarkuslanger/powerhouse-core": "0.2.0",
+"@janmarkuslanger/powerhouse-cms-strapi": "0.2.0",
+"@janmarkuslanger/powerhouse-astro": "0.2.0",
+"@janmarkuslanger/powerhouse-strapi-kit": "0.2.0"
 ```
 
 ```yaml
@@ -152,7 +152,7 @@ apps/
     src/index.ts          bootstrap: public actions, seed steps, watched types
     src/api/              content types
     src/components/       block + shared components
-packages/                 platform packages, published to npm
+packages/                 platform packages, published as @janmarkuslanger/powerhouse-<dir>
   core/                   domain types, block contract, llms.txt, JSON-LD
   cms-strapi/             Strapi adapter, defineBlock
   astro/                  BlockRenderer, consent store + banner/gate behaviour, analytics

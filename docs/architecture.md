@@ -12,7 +12,7 @@
 ## Layers (current)
 
 ```
-site-core ◀── cms-strapi, astro ◀── apps/web ──fetch──▶ apps/cms ──▶ strapi-kit
+core ◀── cms-strapi, astro ◀── apps/web ──fetch──▶ apps/cms ──▶ strapi-kit
                                                           ▲
                                        packages/shared-content (fixtures)
 ```
@@ -42,17 +42,18 @@ Everything else (posts, heroes, forms, …) is per project.
 ## Platform packages
 
 > One change in a package reaches every site through a version bump, not a
-> re-implementation per site. This repo is the platform repo; `apps/` is the
+> re-implementation per site. Packages are published as
+> `@janmarkuslanger/powerhouse-<name>`. This repo is the platform repo; `apps/` is the
 > reference site and the starting point for new ones.
 
 ### Roles
 
 | Role | Package | Responsibility | Knows |
 | --- | --- | --- | --- |
-| core | `site-core` | Domain types, block contract, repository interface, `llms.txt`, JSON-LD | nothing |
-| cms-adapter | `cms-strapi` | Fetching, retry, reference resolution, media URLs, `defineBlock` | core |
-| frontend-integration | `astro` | Block rendering, consent store + banner/gate behaviour, analytics | core |
-| cms-plugin | `strapi-kit` | Permissions, one-time seeding, rebuild trigger | — |
+| core | `powerhouse-core` | Domain types, block contract, repository interface, `llms.txt`, JSON-LD | nothing |
+| cms-adapter | `powerhouse-cms-strapi` | Fetching, retry, reference resolution, media URLs, `defineBlock` | core |
+| frontend-integration | `powerhouse-astro` | Block rendering, consent store + banner/gate behaviour, analytics | core |
+| cms-plugin | `powerhouse-strapi-kit` | Permissions, one-time seeding, rebuild trigger | — |
 | deploy | `.github/workflows/deploy-*.yml` | Reusable CMS and site deploys | — |
 | blocks | — *(not yet)* | Library of reusable blocks | core |
 | site | `apps/*` | Config, design, copy, content, blocks, registry | all of the above |

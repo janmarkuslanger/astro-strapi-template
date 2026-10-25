@@ -1,5 +1,5 @@
 {
-  "name": "@janmarkuslanger/strapi-kit",
+  "name": "@janmarkuslanger/powerhouse-strapi-kit",
   "version": "0.1.0",
   "description": "Strapi 5 bootstrap helpers: public read permissions, one-time seeding, publish-triggered rebuilds.",
   "license": "MIT",

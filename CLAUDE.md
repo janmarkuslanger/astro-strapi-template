@@ -273,7 +273,7 @@ a fresh install works without manual steps.
 The consent system is **service-agnostic**. Analytics is just the first
 consumer:
 
-- `@janmarkuslanger/astro` — the behaviour: generic store (one decision per
+- `@janmarkuslanger/powerhouse-astro` — the behaviour: generic store (one decision per
   service in `localStorage`, a change event, `onConsentChange(id, cb)`),
   `initConsentBanner`, `initConsentGates`, consent-gated GA loading.
 - `lib/consent-services.ts` (site) — the **registry**. The banner renders itself

@@ -6,7 +6,7 @@ import type {
   Page,
   Seo,
   SiteGlobal,
-} from "@janmarkuslanger/site-core";
+} from "@janmarkuslanger/powerhouse-core";
 
 /** Resolves a shared-block id into its blocks. Supplied by the adapter. */
 export type BlockResolver = (id: string) => BaseBlock[];

@@ -1,4 +1,4 @@
-import type { BlockRegistry } from "@janmarkuslanger/site-core";
+import type { BlockRegistry } from "@janmarkuslanger/powerhouse-core";
 import richText, { type RichTextBlock } from "./rich-text";
 
 /** Every block this site renders. Add a member per block. */

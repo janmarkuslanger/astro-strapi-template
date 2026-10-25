@@ -4,7 +4,7 @@ import type {
   CmsRepository,
   Page,
   SiteGlobal,
-} from "@janmarkuslanger/site-core";
+} from "@janmarkuslanger/powerhouse-core";
 import {
   blockPopulate,
   mapBlocks,

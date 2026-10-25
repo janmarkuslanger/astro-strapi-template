@@ -3,7 +3,7 @@ import {
   registerRebuildTrigger,
   seedContent,
   setPublicPermissions,
-} from "@janmarkuslanger/strapi-kit";
+} from "@janmarkuslanger/powerhouse-strapi-kit";
 
 const seedSharedBlocks: any[] = require("@project/shared-content/shared-blocks.json");
 const seedPages: any[] = require("@project/shared-content/pages.json");
