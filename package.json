@@ -13,9 +13,15 @@
     "dev:cms": "npm run build:packages && npm run develop --workspace apps/cms",
     "build:web": "npm run build:packages && npm run build --workspace apps/web",
     "build:cms": "npm run build:packages && npm run build --workspace apps/cms",
-    "preview:web": "npm run preview --workspace apps/web"
+    "preview:web": "npm run preview --workspace apps/web",
+    "test": "tsc -p tsconfig.test.json && vitest run",
+    "test:watch": "vitest"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.3",
+    "vitest": "^5.0.5"
   }
 }

@@ -341,6 +341,9 @@ learned:
   beats reasoning about `flock` semantics. Note that `flock` does **not** work
   over a macOS Docker bind mount — test on the container's own filesystem or
   you will get a false negative.
+- **`npm test` before every commit.** New behaviour in a package or block
+  gets a test next to the existing ones (README → Tests). Mock only I/O
+  boundaries.
 - **`bash -n` at minimum** before merging any deploy script change; extract and
   syntax-check remote scripts embedded in CI YAML too.
 - **Report honestly.** If something was tested standalone rather than

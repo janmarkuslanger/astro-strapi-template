@@ -58,6 +58,9 @@ jobs:
 
       - run: npm ci
 
+      # Never publish what fails its tests.
+      - run: npm test
+
       - run: npm run build:packages
 
       - name: Publish

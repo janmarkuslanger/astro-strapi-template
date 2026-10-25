@@ -159,6 +159,7 @@ packages/                 platform packages, published as @janmarkuslanger/power
   astro/                  BlockRenderer, consent store + banner/gate behaviour, analytics
   strapi-kit/             CMS side: permissions, one-time seed, publish → rebuild
   shared-content/         fixtures in Strapi response format (site-owned)
+  */test/                 unit tests per package (see Tests below)
 docs/
   architecture.md         rules, layers, target package split, adding blocks
   deployment-targets.md   recipes per host
@@ -173,6 +174,20 @@ docs/
 | `npm run build:web` | Production build → `apps/web/dist` |
 | `npm run build:cms` | Strapi production build |
 | `npm run preview:web` | Preview the production build locally |
+| `npm test` | Type-check and run all unit tests |
+| `npm run test:watch` | Tests in watch mode |
+
+### Tests
+
+| Where | What | Runs in |
+| --- | --- | --- |
+| `packages/<pkg>/test/` | package behaviour | Node; `// @vitest-environment jsdom` for DOM |
+| `packages/astro/test/components/` | `.astro` rendering (Astro container) | Astro's Vite config |
+| `apps/web/test/` | the site's blocks | the site's Astro config |
+
+- Tests import package **sources** (aliases in `vitest.shared.ts`), no build needed.
+- Mock only boundaries: `fetch`, the Strapi object (`strapi-kit/test/fake-strapi.ts`), `child_process`.
+- CI: `ci.yml` on every PR and push to `main`; `release.yml` before publishing.
 
 ---
 
