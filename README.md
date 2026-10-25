@@ -132,7 +132,8 @@ uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-web.yml@v0.
 All packages share one version, so updating a site means changing that one
 number everywhere (Renovate can open the PR). Releasing:
 `node scripts/set-version.mjs X.Y.Z`, commit, tag `vX.Y.Z`, push — the
-release workflow publishes to npm. Details and rules:
+release workflow publishes to npm (first release: `NPM_TOKEN`, see the
+header of `release.yml`). Details and rules:
 [`docs/architecture.md`](docs/architecture.md#platform-packages).
 
 ---

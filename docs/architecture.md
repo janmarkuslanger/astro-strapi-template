@@ -92,6 +92,9 @@ CMS-agnostic.
 ### Distribution
 
 - All packages share **one version** (lockstep): `scripts/set-version.mjs`, tag `vX.Y.Z`, `release.yml` publishes to npm.
+- Prerelease tag (`vX.Y.Z-rc.1`) → npm dist-tag `next`; stable → `latest`.
+- A failed release is rerun on the same tag; versions already on npm are skipped.
+- Auth: `NPM_TOKEN` (granular, bypass 2FA) for the first release only, then trusted publishing. Steps: header of `release.yml`.
 - Sites pin that version in `package.json` **and** in `uses: …/deploy-*.yml@vX.Y.Z`. Updating a site = changing one number in both places.
 - Roll out to a pilot site first, then to the rest. Automated update PRs (Renovate) cover both.
 - Breaking change → migration note in the release; codemod when mechanical.
