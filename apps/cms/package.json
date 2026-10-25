@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@project/shared-content": "*",
-    "@project/shared-types": "*",
     "@strapi/plugin-users-permissions": "^5.12.4",
     "@strapi/provider-email-nodemailer": "^5.12.4",
     "@strapi/strapi": "^5.12.4",

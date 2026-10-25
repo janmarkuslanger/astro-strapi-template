@@ -112,12 +112,9 @@ Then work through:
 apps/
   web/                    Astro, static output
     .env.production       committed: public build config (CLAUDE.md §3)
-    src/lib/cms/          repository.ts · client.ts · adapters/
+    src/lib/cms/          client.ts (wiring) · types.ts (site domain types)
     src/lib/consent*.ts   service-agnostic consent store + registry
-    src/blocks/           one folder per block + the registry (index.ts)
-    src/lib/blocks.ts     block contract (defineBlock, BlockRegistry)
-    src/lib/llms.ts       llms.txt, from each block's `llms`
-    src/lib/seo.ts        JSON-LD derived from blocks
+    src/blocks/           one folder per block + Block union and registry (index.ts)
     src/components/       ConsentBanner, ConsentGate, BlockRenderer
   cms/                    Strapi 5
     config/               server, database, middlewares, plugins
@@ -126,9 +123,10 @@ apps/
     src/rebuild.ts        publish → rebuild (hook | script | none)
     src/api/              content types
     src/components/       block + shared components
-packages/
-  shared-types/           the domain model — root of the dependency graph
-  shared-content/         fixtures in Strapi response format
+packages/                 platform packages, published to npm
+  core/                   domain types, block contract, llms.txt, JSON-LD
+  cms-strapi/             Strapi adapter, defineBlock
+  shared-content/         fixtures in Strapi response format (site-owned)
 docs/
   architecture.md         rules, layers, target package split, adding blocks
   deployment-targets.md   recipes per host
@@ -151,13 +149,13 @@ docs/
 A block is one self-contained definition. Full detail in
 [`docs/architecture.md`](docs/architecture.md).
 
-1. Add the type to the `Block` union in `packages/shared-types`.
-2. Create `apps/web/src/blocks/<name>/` with `defineBlock({ strapi, component, llms })`
+1. Create `apps/web/src/blocks/<name>/` with its type, `defineBlock({ cms, component, llms })`
    and the component.
-3. Register it in `apps/web/src/blocks/index.ts` — *the build fails without this.*
+2. Add the type to the `Block` union in `apps/web/src/blocks/index.ts`.
+3. Register it in `BLOCKS` in the same file — *the build fails without this.*
 4. Create the Strapi component and register it in the dynamic zones.
 
-Nested fields deeper than one level need an explicit `strapi.populate`, or they
+Nested fields deeper than one level need an explicit `cms.populate`, or they
 arrive empty. If a new block looks half-filled, start there.
 
 `apps/web/src/blocks/rich-text` is a worked example — read it once, then copy
@@ -196,7 +194,7 @@ file, is in [`CLAUDE.md`](CLAUDE.md) §3.
 | `ECONNREFUSED ::1:1337` | Node resolves `localhost` to IPv6, Strapi listens on IPv4 → use `http://127.0.0.1:1337` |
 | Images broken in production | `PUBLIC_STRAPI_URL` points at `127.0.0.1` — that address means *the visitor's* machine (CLAUDE.md §4) |
 | No consent banner | No service registered. Without a GA id, `consent-services.ts` registers nothing and the banner renders nothing — intended locally |
-| A block renders but is empty | Missing populate entry in `adapters/strapi.ts` |
+| A block renders but is empty | Nesting deeper than one level needs `cms.populate` in the block's definition |
 | `400 Invalid key blocks.…` | The frontend built before the CMS knew a component — the web job must wait for the CMS job |
 | An editor can't see a new field | Strapi field-level permissions are per role and are not auto-granted. Settings → Roles in the panel, not in code |
 | Deploy dies with `exit 137` | SIGKILL — out of memory on the server. Check `free -m` and `swapon --show` (CLAUDE.md §8) |

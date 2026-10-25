@@ -1,6 +1,17 @@
 /**
- * Re-export of the shared domain model, so everything inside src/lib/cms and
- * every page imports from one place. Keeps the `@project/shared-types`
- * specifier out of dozens of files.
+ * The domain model as this site sees it: platform types from site-core, with
+ * `Page` bound to the site's own block union. Pages and components import
+ * from here, never from an adapter.
  */
-export * from "@project/shared-types";
+import type { Page as CorePage } from "@janmarkuslanger/site-core";
+import type { Block } from "../../blocks";
+
+export type {
+  CmsRepository,
+  ImageAsset,
+  Link,
+  Seo,
+  SiteGlobal,
+} from "@janmarkuslanger/site-core";
+export type { Block } from "../../blocks";
+export type Page = CorePage<Block>;

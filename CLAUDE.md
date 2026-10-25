@@ -48,7 +48,7 @@ These are load-bearing. Breaking one does not fail loudly; it rots quietly.
 ### The frontend does not know the CMS exists
 
 Pages and components import **only** `cms` from `src/lib/cms/client.ts` and the
-domain types from `packages/shared-types`. They never import an adapter, never
+domain types from `src/lib/cms/types.ts`. They never import an adapter, never
 see a Strapi response shape, never handle `__component` or `populate`.
 
 ```ts
@@ -56,8 +56,9 @@ import { cms } from "../lib/cms/client";
 const page = await cms.getPage("about");
 ```
 
-Every CMS quirk ends in the adapter. Swapping the backend means writing one new
-adapter and changing one line in `client.ts` — no page or component changes.
+Every CMS quirk ends in the adapter. Swapping the backend means another
+adapter package, the `cms` part of each block, and `client.ts` — no page or
+component changes.
 This is worth defending even when it feels like ceremony; it is what makes the
 CMS replaceable and the frontend testable.
 
@@ -208,7 +209,7 @@ are loaded *by the visitor's browser*, where `127.0.0.1` means the visitor's
 own machine. The adapter therefore takes both:
 
 ```ts
-new StrapiCmsAdapter(fetchUrl, token, publicMediaUrl)
+new StrapiCmsAdapter({ url: fetchUrl, token, mediaUrl: publicMediaUrl, blocks })
 ```
 
 Getting this wrong ships `<img src="http://127.0.0.1:1337/uploads/…">` to

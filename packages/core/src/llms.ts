@@ -1,5 +1,5 @@
-import { definitionFor, type BlockRegistry } from "./blocks";
-import type { Page, SiteGlobal } from "./cms/types";
+import { definitionFor, type BlockRegistry } from "./blocks.js";
+import type { Page, SiteGlobal } from "./types.js";
 
 /**
  * Builds `llms.txt` (llmstxt.org) — a compact site summary for generative
@@ -20,7 +20,7 @@ export function buildLlmsTxt(
   global: SiteGlobal,
   pages: Page[],
   siteUrl: string,
-  blocks: BlockRegistry
+  blocks: BlockRegistry<any>
 ): string {
   const lines: string[] = [];
 

@@ -9,7 +9,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import BlockRenderer from "../components/blocks/BlockRenderer.astro";
 import { BLOCKS } from "../blocks";
 import { cms } from "../lib/cms/client";
-import { pageSchemas } from "../lib/seo";
+import { pageSchemas } from "@janmarkuslanger/site-core";
 
 export async function getStaticPaths() {
   const pages = await cms.listPages();

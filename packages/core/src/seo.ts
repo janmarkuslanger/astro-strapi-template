@@ -1,5 +1,5 @@
-import { definitionFor, type BlockRegistry } from "./blocks";
-import type { Page, SiteGlobal } from "./cms/types";
+import { definitionFor, type BlockRegistry, type JsonLd } from "./blocks.js";
+import type { Page, SiteGlobal } from "./types.js";
 
 /**
  * Structured data (JSON-LD).
@@ -10,8 +10,6 @@ import type { Page, SiteGlobal } from "./cms/types";
  * `FAQPage` markup with nobody touching code — and a new page is correct by
  * default instead of forgotten.
  */
-
-type JsonLd = Record<string, unknown>;
 
 export function organizationSchema(global: SiteGlobal, siteUrl: string): JsonLd {
   return {
@@ -28,7 +26,7 @@ export function pageSchemas(
   page: Page,
   global: SiteGlobal,
   siteUrl: string,
-  blocks: BlockRegistry
+  blocks: BlockRegistry<any>
 ): JsonLd[] {
   const schemas: JsonLd[] = [];
 

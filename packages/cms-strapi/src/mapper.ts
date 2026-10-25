@@ -1,8 +1,15 @@
 import { marked } from "marked";
-import type { Block, ImageAsset, Link, Page, Seo, SiteGlobal } from "../types";
+import type {
+  BaseBlock,
+  ImageAsset,
+  Link,
+  Page,
+  Seo,
+  SiteGlobal,
+} from "@janmarkuslanger/site-core";
 
 /** Resolves a shared-block id into its blocks. Supplied by the adapter. */
-export type BlockResolver = (id: string) => Block[];
+export type BlockResolver = (id: string) => BaseBlock[];
 
 /**
  * Component id of the reference block. Adapter-internal: references are
@@ -16,8 +23,8 @@ export interface MapContext {
   markdown(value: unknown): string;
 }
 
-/** Strapi side of a block definition (see lib/blocks.ts). */
-export interface StrapiBlockMapping<B extends Block> {
+/** Strapi side of a block definition — the `cms` field of `defineBlock`. */
+export interface StrapiBlockMapping<B extends BaseBlock> {
   /** Strapi component id, e.g. "blocks.hero". */
   component: string;
   /**
@@ -91,7 +98,7 @@ export function mapBlocks(
   mediaUrl: string,
   mappings: StrapiBlockMappings,
   resolve?: BlockResolver
-): Block[] {
+): BaseBlock[] {
   const ctx: MapContext = {
     image: (value) => mapImage(value, mediaUrl),
     markdown: md,
@@ -99,7 +106,7 @@ export function mapBlocks(
   const byComponent = new Map(
     Object.entries(mappings).map(([type, m]) => [m.component, { type, m }])
   );
-  const blocks: Block[] = [];
+  const blocks: BaseBlock[] = [];
 
   for (const item of raw ?? []) {
     // Resolved here, never surfaced: the domain model has no reference type,
@@ -112,7 +119,7 @@ export function mapBlocks(
 
     const entry = byComponent.get(item.__component);
     if (!entry) continue;
-    blocks.push({ ...entry.m.map(item, ctx), type: entry.type } as Block);
+    blocks.push({ ...entry.m.map(item, ctx), type: entry.type });
   }
 
   return blocks;

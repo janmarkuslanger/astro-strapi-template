@@ -1,5 +1,10 @@
-import type { CmsRepository } from "../repository";
-import type { Block, Page, SiteGlobal } from "../types";
+import type {
+  BaseBlock,
+  BlockRegistry,
+  CmsRepository,
+  Page,
+  SiteGlobal,
+} from "@janmarkuslanger/site-core";
 import {
   blockPopulate,
   mapBlocks,
@@ -7,11 +12,37 @@ import {
   mapPage,
   type BlockResolver,
   type StrapiBlockMappings,
-} from "./mapper";
+} from "./mapper.js";
 
-export class StrapiCmsAdapter implements CmsRepository {
+export interface StrapiCmsAdapterOptions<B extends BaseBlock> {
+  /**
+   * Where THIS process fetches from at build time. May be 127.0.0.1 when
+   * building on the CMS host — never localhost (IPv6, see CLAUDE.md §4).
+   */
+  url: string;
+  /** Optional read-only API token. */
+  token?: string;
+  /**
+   * What ends up in the HTML — image sources, form endpoints — loaded later by
+   * the VISITOR's browser, where 127.0.0.1 means their own machine. Defaults
+   * to `url`, which is only right when that URL is public.
+   */
+  mediaUrl?: string;
+  /** The site's block registry; the adapter reads each definition's `cms`. */
+  blocks: BlockRegistry<B>;
+}
+
+export class StrapiCmsAdapter<B extends BaseBlock = BaseBlock>
+  implements CmsRepository<B>
+{
+  private readonly url: string;
+  private readonly token: string | undefined;
+  private readonly mediaUrl: string;
+  /** Strapi side of every registered block, keyed by domain type. */
+  private readonly blocks: StrapiBlockMappings;
+
   /** Cache so a page with five references costs one extra request, not five. */
-  private sharedBlocks: Map<string, Block[]> | null = null;
+  private sharedBlocks: Map<string, BaseBlock[]> | null = null;
 
   /**
    * Populate query so Strapi ships every component and media file of the
@@ -27,15 +58,17 @@ export class StrapiCmsAdapter implements CmsRepository {
    */
   private readonly pagePopulate: string;
 
-  constructor(
-    private readonly url: string,
-    private readonly token: string | undefined,
-    /** Public base for media/form URLs — see client.ts. */
-    private readonly mediaUrl: string,
-    /** Strapi side of every registered block, keyed by domain type. */
-    private readonly blocks: StrapiBlockMappings
-  ) {
-    this.populate = blockPopulate(blocks);
+  constructor(options: StrapiCmsAdapterOptions<B>) {
+    this.url = options.url;
+    this.token = options.token;
+    this.mediaUrl = options.mediaUrl || options.url;
+    this.blocks = Object.fromEntries(
+      Object.entries(options.blocks).map(([type, definition]) => [
+        type,
+        (definition as { cms: StrapiBlockMappings[string] }).cms,
+      ])
+    );
+    this.populate = blockPopulate(this.blocks);
     this.pagePopulate = `populate[seo]=true&${this.populate}`;
   }
 
@@ -113,18 +146,27 @@ export class StrapiCmsAdapter implements CmsRepository {
     return mapGlobal(json.data ?? {});
   }
 
-  async listPages(): Promise<Page[]> {
+  // Mapped blocks are B by construction: only registered types survive the
+  // mapper. The cast states that; it cannot be checked across the CMS boundary.
+  async listPages(): Promise<Page<B>[]> {
     const json = await this.fetchJson(`/api/pages?${this.pagePopulate}`);
     const resolve = await this.blockResolver();
-    return (json.data ?? []).map((e: any) => mapPage(e, this.mediaUrl, this.blocks, resolve));
+    return (json.data ?? []).map(
+      (e: any) => mapPage(e, this.mediaUrl, this.blocks, resolve) as Page<B>
+    );
   }
 
-  async getPage(slug: string): Promise<Page | null> {
+  async getPage(slug: string): Promise<Page<B> | null> {
     const json = await this.fetchJson(
       `/api/pages?filters[slug][$eq]=${encodeURIComponent(slug)}&${this.pagePopulate}`
     );
     const entry = (json.data ?? [])[0];
     if (!entry) return null;
-    return mapPage(entry, this.mediaUrl, this.blocks, await this.blockResolver());
+    return mapPage(
+      entry,
+      this.mediaUrl,
+      this.blocks,
+      await this.blockResolver()
+    ) as Page<B>;
   }
 }

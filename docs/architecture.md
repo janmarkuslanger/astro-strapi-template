@@ -12,18 +12,17 @@
 ## Layers (current)
 
 ```
-shared-types (domain)      shared-content (fixtures)
-        │                          │
-        ▼                          ▼
-apps/web ── repository ──▶ adapter ──▶ apps/cms (REST)
+packages/core ◀── packages/cms-strapi ◀── apps/web (site) ──▶ apps/cms (REST)
+                                              ▲
+                              packages/shared-content (fixtures → apps/cms)
 ```
 
 | Layer | May import | Never imports |
 | --- | --- | --- |
-| pages, components | `cms` client, domain types | adapters |
-| client | one adapter | — |
-| adapters | domain types, mapper | UI components |
-| domain types | nothing | anything |
+| pages, components | `cms` client, `lib/cms/types`, core helpers | adapter package |
+| client, block modules | adapter package | — |
+| adapter package | core | site code, UI components |
+| core | nothing | anything |
 
 ## Template scope
 
@@ -112,12 +111,12 @@ Every field is required by the type, so a half-registered block cannot compile.
 
 Step 3 is compiler-enforced. Step 4 is not.
 
-1. **Domain type**: interface in `shared-types`, added to the `Block` union.
-2. **Block module**: `apps/web/src/blocks/<name>/` containing `index.ts` (`defineBlock`) and the component. `defineBlock` requires `strapi`, `component` and `llms`; `jsonLd` is optional.
-3. **Register** in `apps/web/src/blocks/index.ts`. A union member without an entry fails the build.
+1. **Block module**: `apps/web/src/blocks/<name>/` with its domain type, `defineBlock` (from the adapter package) and the component. Requires `cms`, `component`, `llms`; `jsonLd` is optional.
+2. **Domain type** into the `Block` union in `apps/web/src/blocks/index.ts`.
+3. **Register** in `BLOCKS` in the same file. A union member without an entry fails the build.
 4. **CMS component**: `apps/cms/src/components/blocks/<name>.json`, added to the dynamic zones of `page` and, if reusable, `shared-block`.
 
-Nested relations or media deeper than one level need an explicit `strapi.populate`, otherwise they arrive empty. Check this first when a block looks half-filled.
+Nested relations or media deeper than one level need an explicit `cms.populate`, otherwise they arrive empty. Check this first when a block looks half-filled.
 
 ## Adding a content type
 
