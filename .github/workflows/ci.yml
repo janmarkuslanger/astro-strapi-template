@@ -1,7 +1,7 @@
 name: CI
 
-# Unit tests for the platform packages and the site's blocks. Deploys do not
-# run them: a site repo calling the reusable workflows has no platform tests.
+# Unit tests. Stays in sites created from the template (init-site keeps it),
+# where it runs the site's own tests.
 
 on:
   pull_request:

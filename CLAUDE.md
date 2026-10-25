@@ -341,6 +341,9 @@ learned:
   beats reasoning about `flock` semantics. Note that `flock` does **not** work
   over a macOS Docker bind mount — test on the container's own filesystem or
   you will get a false negative.
+- **Changed anything a customer site inherits** (`apps/`, root config,
+  caller workflows)? Run `scripts/e2e-site.sh`; `init-site` must still
+  produce a working site.
 - **`npm test` before every commit.** New behaviour in a package or block
   gets a test next to the existing ones (README → Tests). Mock only I/O
   boundaries.
