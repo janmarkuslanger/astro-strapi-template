@@ -20,6 +20,13 @@ export class StrapiCmsAdapter implements CmsRepository {
    */
   private readonly populate: string;
 
+  /**
+   * Pages additionally need their `seo` component. Strapi 5 populates no
+   * component unless asked, so without this every page silently loses its
+   * title and meta description.
+   */
+  private readonly pagePopulate: string;
+
   constructor(
     private readonly url: string,
     private readonly token: string | undefined,
@@ -29,6 +36,7 @@ export class StrapiCmsAdapter implements CmsRepository {
     private readonly blocks: StrapiBlockMappings
   ) {
     this.populate = blockPopulate(blocks);
+    this.pagePopulate = `populate[seo]=true&${this.populate}`;
   }
 
   /**
@@ -106,14 +114,14 @@ export class StrapiCmsAdapter implements CmsRepository {
   }
 
   async listPages(): Promise<Page[]> {
-    const json = await this.fetchJson(`/api/pages?${this.populate}`);
+    const json = await this.fetchJson(`/api/pages?${this.pagePopulate}`);
     const resolve = await this.blockResolver();
     return (json.data ?? []).map((e: any) => mapPage(e, this.mediaUrl, this.blocks, resolve));
   }
 
   async getPage(slug: string): Promise<Page | null> {
     const json = await this.fetchJson(
-      `/api/pages?filters[slug][$eq]=${encodeURIComponent(slug)}&${this.populate}`
+      `/api/pages?filters[slug][$eq]=${encodeURIComponent(slug)}&${this.pagePopulate}`
     );
     const entry = (json.data ?? [])[0];
     if (!entry) return null;
