@@ -116,7 +116,9 @@ changes CMS state.
 
 **Content** (pages, posts, text, images) comes from the fixtures in
 `packages/shared-content` **exactly once**, into an empty database.
-`seedContent` checks whether *any* content exists and does nothing if so.
+`seedContent` checks whether *any* content exists and does nothing if so. It
+writes in one transaction: a failed seed leaves the database empty, so the next
+boot retries instead of seeing a half-seeded site as "has content".
 
 There is deliberately **no** `SEED_CONTENT` flag or force switch. A restart, a
 deploy, or a server swap must never be able to overwrite an afternoon of

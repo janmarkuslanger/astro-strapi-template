@@ -21,6 +21,10 @@ import type { Core } from "@strapi/strapi";
  * reused, so re-seeding never piles up duplicates) and anything a visitor
  * created, such as form submissions.
  *
+ * All steps run in ONE transaction. A failure rolls everything back, so the
+ * next boot sees an empty database and seeds again — a half-seeded database
+ * would count as "has content" and never be completed.
+ *
  * Extending: add a step for your content type, in dependency order. Every
  * step's type counts as "the site already has content".
  */
@@ -151,25 +155,29 @@ export async function seedContent(
     return value;
   };
 
-  for (const step of options.steps) {
-    // Types with draft & publish are created published; for the others a
-    // status means nothing.
-    const draftAndPublish = Boolean(
-      (strapi.contentType(step.uid as any) as any)?.options?.draftAndPublish
-    );
-    const entries = Array.isArray(step.entries) ? step.entries : [step.entries];
-    const ids = new Map<string, string>();
+  // Document service calls join this transaction. Uploads stay outside: they
+  // touch the filesystem, and a retry reuses them by name.
+  await strapi.db.transaction(async () => {
+    for (const step of options.steps) {
+      // Types with draft & publish are created published; for the others a
+      // status means nothing.
+      const draftAndPublish = Boolean(
+        (strapi.contentType(step.uid as any) as any)?.options?.draftAndPublish
+      );
+      const entries = Array.isArray(step.entries) ? step.entries : [step.entries];
+      const ids = new Map<string, string>();
 
-    for (const entry of entries) {
-      const created = await strapi.documents(step.uid as any).create({
-        data: resolveRefs(resolveFiles(entry, files)),
-        ...(draftAndPublish ? { status: "published" as const } : {}),
-      });
-      if (step.ref) ids.set(String(entry[step.ref.key]), created.documentId);
+      for (const entry of entries) {
+        const created = await strapi.documents(step.uid as any).create({
+          data: resolveRefs(resolveFiles(entry, files)),
+          ...(draftAndPublish ? { status: "published" as const } : {}),
+        });
+        if (step.ref) ids.set(String(entry[step.ref.key]), created.documentId);
+      }
+
+      if (step.ref) refs.set(step.ref.token, ids);
     }
-
-    if (step.ref) refs.set(step.ref.token, ids);
-  }
+  });
 
   strapi.log.info("Seed: done.");
 }
