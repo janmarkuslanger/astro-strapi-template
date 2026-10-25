@@ -213,6 +213,7 @@ docs/
 - Package tests import package **sources** (aliases in `vitest.shared.ts`). `apps/web` tests use the packages' `dist/` like a customer site, so `npm test` builds the packages first.
 - Mock only boundaries: `fetch`, the Strapi object (`strapi-kit/test/fake-strapi.ts`), `child_process`.
 - CI: `ci.yml` on every PR and push to `main`; `release.yml` before publishing.
+- `scripts/e2e-site.sh` (CI: `site-e2e.yml`): template copy → `init-site` → packed packages → tests → Strapi → site build. Run it locally after changing anything a site inherits.
 
 ---
 

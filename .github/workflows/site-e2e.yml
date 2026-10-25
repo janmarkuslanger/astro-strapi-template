@@ -1,0 +1,30 @@
+name: Site e2e
+
+# Platform only (init-site removes it). The customer path, end to end:
+# template copy → init-site → packages as published (npm pack) → tests →
+# Strapi build, seed, start → site build. Catches template changes that only
+# break in a site created from it.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: scripts/e2e-site.sh
