@@ -132,6 +132,8 @@ export function registerRebuildTrigger(
       detached: true,
       stdio: ["ignore", out, out],
     });
+    // The child holds its own copy; keeping ours would leak one per rebuild.
+    if (typeof out === "number") fs.closeSync(out);
 
     child.on("error", (error) =>
       strapi.log.error(`Rebuild: could not start script: ${error}`)
