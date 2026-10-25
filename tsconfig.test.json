@@ -1,5 +1,6 @@
 // Type-checks the tests (vitest itself only strips types). Package sources
-// are checked by their own build; apps/web by `astro check`.
+// are checked by their own build; apps/web by `astro check`. Imports of other
+// packages resolve to their dist/, so `npm test` builds the packages first.
 {
   "extends": "./tsconfig.packages.json",
   "compilerOptions": {
@@ -9,10 +10,8 @@
     "moduleResolution": "Bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node"],
-    "paths": {
-      "@janmarkuslanger/powerhouse-core": ["./packages/core/src/index.ts"],
-      "@janmarkuslanger/powerhouse-cms-strapi": ["./packages/cms-strapi/src/index.ts"]
-    }
+    "allowJs": true,
+    "checkJs": true
   },
-  "include": ["astro-modules.d.ts", "packages/*/test", "apps/web/test", "vitest.config.ts", "vitest.shared.ts"]
+  "include": ["astro-modules.d.ts", "packages/*/test", "apps/web/test", "scripts/test", "vitest.config.mts", "vitest.shared.ts"]
 }

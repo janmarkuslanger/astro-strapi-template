@@ -89,6 +89,29 @@ from that moment the CMS owns the content and the fixtures are never read again.
 > **Use `127.0.0.1`, not `localhost`.** Node resolves `localhost` to IPv6 and
 > Strapi listens on IPv4. The symptom is `ECONNREFUSED ::1:1337`.
 
+### New customer site
+
+1. GitHub: **Use this template** → new repository.
+2. In the new repository, once:
+
+   ```bash
+   npm run init-site && npm install
+   git add -A && git commit -m "chore: init site"
+   ```
+
+3. Continue with *Making it yours* below.
+
+| `init-site` | |
+| --- | --- |
+| removes | `packages/{core,cms-strapi,astro,strapi-kit}`, `release.yml`, `site-e2e.yml`, `deploy-cms.yml`, `deploy-web.yml`, platform scripts and test config |
+| rewrites | root scripts (no `build:packages`), `deploy.yml` + `content-rebuild.yml` → `…/deploy-*.yml@v<version>`, test config → site tests only |
+| keeps | `apps/`, `packages/shared-content`, `ci.yml`, docs |
+| version | the one `apps/web/package.json` pins |
+
+Until then the deploy workflows refuse to run: npm would otherwise build with
+the template's local package sources instead of the published packages.
+`init-site` refuses to run in this repository.
+
 ### Making it yours
 
 ```bash
@@ -113,7 +136,8 @@ Then work through:
 ## Keeping sites up to date
 
 This repo is the platform. `apps/` is the reference site; a customer site is
-its own repository with the same layout, depending on the published packages:
+created from it (*New customer site* above) and depends on the published
+packages:
 
 ```jsonc
 // apps/web/package.json, apps/cms/package.json
@@ -160,6 +184,7 @@ packages/                 platform packages, published as @janmarkuslanger/power
   strapi-kit/             CMS side: permissions, one-time seed, publish → rebuild
   shared-content/         fixtures in Strapi response format (site-owned)
   */test/                 unit tests per package (see Tests below)
+scripts/                  set-version · init-site · e2e-site (platform tooling, removed by init-site)
 docs/
   architecture.md         rules, layers, target package split, adding blocks
   deployment-targets.md   recipes per host
@@ -185,7 +210,7 @@ docs/
 | `packages/astro/test/components/` | `.astro` rendering (Astro container) | Astro's Vite config |
 | `apps/web/test/` | the site's blocks | the site's Astro config |
 
-- Tests import package **sources** (aliases in `vitest.shared.ts`), no build needed.
+- Package tests import package **sources** (aliases in `vitest.shared.ts`). `apps/web` tests use the packages' `dist/` like a customer site, so `npm test` builds the packages first.
 - Mock only boundaries: `fetch`, the Strapi object (`strapi-kit/test/fake-strapi.ts`), `child_process`.
 - CI: `ci.yml` on every PR and push to `main`; `release.yml` before publishing.
 
