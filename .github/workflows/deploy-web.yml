@@ -46,6 +46,11 @@ on:
 env:
   # Where the built site ends up. Same for every target.
   DIST: apps/web/dist
+  # Inputs reach scripts only through env. `${{ }}` inside `run:` is pasted
+  # into the script text before the shell parses it.
+  WEB_ROOT: ${{ inputs.web-root }}
+  SITE_URL: ${{ inputs.site-url }}
+  SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
 
 jobs:
   deploy:
@@ -123,25 +128,31 @@ jobs:
         if: inputs.deploy-target == 'ssh'
         run: |
           set -euo pipefail
+          # An unset repository variable arrives as "". Without this check the
+          # release lands in /releases and the switch runs in $HOME.
+          if [ -z "$WEB_ROOT" ]; then
+            echo "::error::deploy-target is ssh but web-root is empty."
+            exit 1
+          fi
+
           # One directory per run: a content rebuild carries the same commit as
           # the deploy before it, so the sha alone would collide.
           RELEASE="$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA::7}"
-          ROOT="${{ inputs.web-root }}"
+          SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes"
 
-          ssh -i ~/.ssh/deploy_key "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "mkdir -p $ROOT/releases/$RELEASE"
+          $SSH "$SSH_TARGET" "mkdir -p $(printf %q "$WEB_ROOT/releases/$RELEASE")"
 
-          rsync -az --delete \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
-            "$DIST/" \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:$ROOT/releases/$RELEASE/"
+          rsync -az --delete -e "$SSH" \
+            "$DIST/" "$SSH_TARGET:$WEB_ROOT/releases/$RELEASE/"
 
-          ssh -i ~/.ssh/deploy_key "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            bash -euo pipefail <<REMOTE
-            cd "$ROOT"
+          # Values travel as quoted positional arguments; the heredoc is quoted,
+          # so nothing inside it is expanded on the runner.
+          $SSH "$SSH_TARGET" \
+            "bash -euo pipefail -s -- $(printf '%q ' "$WEB_ROOT" "$RELEASE")" <<'REMOTE'
+            cd "$1"
             # Atomic: the web server follows the symlink per request, so no
             # visitor ever sees a half-copied release.
-            ln -sfn "releases/$RELEASE" current.tmp
+            ln -sfn "releases/$2" current.tmp
             mv -Tf current.tmp current
             # Keep five for a one-command rollback.
             ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf
@@ -151,7 +162,7 @@ jobs:
         if: inputs.site-url != ''
         run: |
           for i in $(seq 1 10); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "${{ inputs.site-url }}" || true)
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL" || true)
             [ "$code" = "200" ] && { echo "Site is responding."; exit 0; }
             echo "Attempt $i: HTTP $code — waiting …"
             sleep 5

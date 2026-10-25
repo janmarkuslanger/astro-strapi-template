@@ -46,8 +46,16 @@ on:
       SSH_USER: { required: true }
       SSH_HOST: { required: true }
 
+# Inputs reach scripts only through env. `${{ }}` inside `run:` is pasted into
+# the script text before the shell parses it — a quote in a value breaks or
+# rewrites the command.
 env:
   APP_DIR: ${{ inputs.app-dir }}
+  SHARED_DIR: ${{ inputs.shared-dir }}
+  SERVICE_NAME: ${{ inputs.service-name }}
+  CMS_URL: ${{ inputs.cms-url }}
+  WEB_ROOT: ${{ inputs.web-root }}
+  SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
 
 jobs:
   changes:
@@ -91,6 +99,17 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      # `required: true` accepts "", and an unset repository variable is "".
+      # An empty app-dir would make the rsync --delete below target "/".
+      - name: Inputs must not be empty
+        run: |
+          failed=0
+          for pair in "app-dir=$APP_DIR" "shared-dir=$SHARED_DIR" \
+                      "service-name=$SERVICE_NAME" "cms-url=$CMS_URL"; do
+            [ -n "${pair#*=}" ] || { echo "::error::Input ${pair%%=*} is empty."; failed=1; }
+          done
+          exit "$failed"
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
@@ -125,22 +144,25 @@ jobs:
             --exclude "apps/cms/.env" \
             --exclude "apps/cms/.tmp" \
             --exclude "apps/cms/public/uploads" \
-            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.APP_DIR }}/"
+            ./ "$SSH_TARGET:$APP_DIR/"
 
       - name: Install dependencies on the server and restart the service
         run: |
-          ssh -i ~/.ssh/deploy_key "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -euo pipefail <<'REMOTE'
-            cd "${{ inputs.app-dir }}"
+          # Values travel as quoted positional arguments; the heredoc is quoted,
+          # so nothing inside it is expanded on the runner.
+          ssh -i ~/.ssh/deploy_key "$SSH_TARGET" \
+            "bash -euo pipefail -s -- $(printf '%q ' "$APP_DIR" "$SHARED_DIR" "$SERVICE_NAME" "$WEB_ROOT")" <<'REMOTE'
+            APP_DIR="$1" SHARED_DIR="$2" SERVICE_NAME="$3" WEB_ROOT="$4"
+            cd "$APP_DIR"
 
             # Uploads live outside the deploy directory and are linked in, so
             # the media library survives rsync --delete.
-            mkdir -p "${{ inputs.shared-dir }}/uploads"
-            ln -sfn "${{ inputs.shared-dir }}/uploads" apps/cms/public/uploads
+            mkdir -p "$SHARED_DIR/uploads"
+            ln -sfn "$SHARED_DIR/uploads" apps/cms/public/uploads
 
             # If a publish can trigger a local site build, take the same lock
             # it takes — npm ci deletes node_modules, and a build reading from
             # it at the same moment leaves a tree that runs nothing.
-            WEB_ROOT="${{ inputs.web-root }}"
             if [ -n "$WEB_ROOT" ]; then
               mkdir -p "$WEB_ROOT"
               exec 9>"$WEB_ROOT/.rebuild.lock"
@@ -153,7 +175,7 @@ jobs:
             # install when the lockfile moved or the tree is incomplete. The
             # stamp is written only AFTER success, so an interrupted run never
             # claims a healthy tree.
-            STAMP="${{ inputs.shared-dir }}/package-lock.installed"
+            STAMP="$SHARED_DIR/package-lock.installed"
             if [ -x node_modules/.bin/strapi ] && cmp -s package-lock.json "$STAMP"; then
               echo "Dependencies unchanged — install skipped."
             else
@@ -174,13 +196,13 @@ jobs:
               cp package-lock.json "$STAMP"
             fi
 
-            sudo /bin/systemctl restart "${{ inputs.service-name }}"
+            sudo /bin/systemctl restart "$SERVICE_NAME"
           REMOTE
 
       - name: Health check
         run: |
           for i in $(seq 1 20); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "${{ inputs.cms-url }}/api/global" || true)
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$CMS_URL/api/global" || true)
             [ "$code" = "200" ] && { echo "CMS is responding."; exit 0; }
             echo "Attempt $i: HTTP $code — waiting …"
             sleep 5
