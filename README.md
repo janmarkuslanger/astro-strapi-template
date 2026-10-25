@@ -128,7 +128,7 @@ packages/
   shared-types/           the domain model — root of the dependency graph
   shared-content/         fixtures in Strapi response format
 docs/
-  architecture.md         layers, and the five steps to add a block
+  architecture.md         rules, layers, target package split, adding blocks
   deployment-targets.md   recipes per host
 ```
 

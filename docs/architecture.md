@@ -1,119 +1,144 @@
 # Architecture
 
+## Principles
+
+- **Frontend is CMS-agnostic.** Pages see domain types and one repository, nothing else.
+- **Dependencies point one way.** Toward the domain model, never back.
+- **Every CMS quirk ends in the adapter.**
+- **Unknown blocks are skipped, never fatal.**
+- **Forgetting a registration must fail the build**, not ship silently.
+- **Derive, don't maintain.** SEO, JSON-LD and `llms.txt` come from the content model.
+
+## Layers (current)
+
 ```
-              packages/shared-types        packages/shared-content
-              (domain model, block ids)    (fixtures, Strapi response format)
-                       │                            │
-           ┌───────────┴────────────┐               ├──────────────┐
-           ▼                        ▼               ▼              ▼
-┌────────────────────────────────────────┐   ┌──────────────────────┐
-│  apps/web — Astro, static              │   │  apps/cms — Strapi 5 │
-│                                        │   │                      │
-│  pages / components                    │──▶│  seeds once from     │
-│      │ only CmsRepository + domain     │   │  shared-content      │
-│      ▼                                 │   │                      │
-│  src/lib/cms/                          │   │  REST API            │
-│    repository.ts · client.ts           │◀──│  /api/*              │
-│    adapters/{strapi,mapper}.ts         │   │                      │
-└────────────────────────────────────────┘   └──────────────────────┘
+shared-types (domain)      shared-content (fixtures)
+        │                          │
+        ▼                          ▼
+apps/web ── repository ──▶ adapter ──▶ apps/cms (REST)
 ```
 
-## What the template defines, and what it leaves to you
-
-The content model is where every project differs, so the template ships the
-**mechanism** rather than a model:
-
-| Shipped | Why it is structural |
-| --- | --- |
-| `page` with a dynamic zone | Pages composed of blocks *is* the architecture |
-| `global` single type | Every site needs site-wide settings somewhere |
-| `shared-block` + `blocks.reference` | A pattern, not a content decision |
-| `blocks.rich-text` | One worked example so the five steps below are visible |
-
-Everything else — blog posts, categories, heroes, pricing tables, FAQs, forms —
-is a product decision. Add what your project needs; delete `rich-text` once you
-have real blocks.
-
-## Layers, and what may import what
-
-| Layer | May import | Must never import |
+| Layer | May import | Never imports |
 | --- | --- | --- |
-| `src/pages`, `src/components` | `cms` from `client.ts`, domain types | anything under `adapters/` |
-| `client.ts` | one adapter | — |
-| `adapters/*` | domain types, mapper | Astro components |
-| `packages/shared-types` | nothing | everything (it is the root of the graph) |
+| pages, components | `cms` client, domain types | adapters |
+| client | one adapter | — |
+| adapters | domain types, mapper | UI components |
+| domain types | nothing | anything |
 
-The one-way dependency is the point: the domain model does not know Strapi
-exists, so Strapi can be replaced without touching a single page.
+## Template scope
 
-## Adding a content block — the five steps
+Ships the **mechanism**, not a content model.
 
-Two are compiler-enforced. The rest are easy to forget, hence the list.
+| Shipped | Reason |
+| --- | --- |
+| `page` + dynamic zone | Block-composed pages are the architecture |
+| `global` | Every site needs site-wide settings |
+| `shared-block` + `reference` | Reuse pattern |
+| `rich-text` | Single worked example; replace it |
 
-1. **Domain type** — add the interface in `packages/shared-types` and add it to
-   the `Block` union.
-2. **Block id** — add the entry to `BLOCK_COMPONENTS`.
-   *Compiler-enforced:* `satisfies Record<Block["type"], string>` fails the
-   build on a missing entry.
-3. **Strapi component** — `apps/cms/src/components/blocks/<name>.json`, then
-   register it in the dynamic zone of `page/schema.json` (and `shared-block`,
-   if it should be usable inside a reusable block).
-4. **Adapter** — a `case` in `adapters/mapper.ts` and a populate entry in
-   `adapters/strapi.ts`. **This is the step with no safety net:** without the
-   populate entry the block renders, but its nested fields (items, images,
-   links) arrive empty. If a new block looks half-filled, start here.
-5. **Rendering + llms.txt** — an Astro component in `src/components/blocks/`,
-   registered in `BlockRenderer`, and a `case` in `src/lib/llms.ts`.
-   *Compiler-enforced* via a `never` branch: a new block must declare what it
-   contributes to `llms.txt`, even if the answer is `[]`.
+Everything else (posts, heroes, forms, …) is per project.
 
-Consider whether the block should also contribute **structured data** — see
-`src/lib/seo.ts`. Deriving JSON-LD from block types (rather than from page
-slugs) is what makes new pages correct by default.
+---
+
+## Target: platform packages
+
+> **Status: target, not yet implemented.** Goal: one change in a package
+> reaches every site through a version bump, not a re-implementation per site.
+
+### Roles
+
+| Package | Responsibility | Knows |
+| --- | --- | --- |
+| **core** | Domain types, block contract, repository interface, `llms.txt`, JSON-LD | nothing |
+| **cms-adapter** | Fetching, retry, reference resolution, media URLs | core |
+| **frontend-integration** | Routes, block rendering, consent, analytics, SEO head | core |
+| **cms-plugin** | Base content types, permissions, seeding, rebuild trigger | core |
+| **blocks** | Library of reusable blocks | core |
+| **deploy** | Reusable CI workflows, server scripts | — |
+| **site** | Config, design, content, site-only blocks | all of the above |
+
+```
+core ◀── cms-adapter, frontend-integration, cms-plugin, blocks ◀── site
+```
+
+### Rules
+
+1. **Packages never import from a site.** Site specifics enter only as config or block lists.
+2. **core knows no frontend framework and no CMS.**
+3. **No design in packages.** Mechanics and overridable, unstyled components only. Layout, styles and visible copy belong to the site.
+4. **Packages never read `PUBLIC_*` env.** The site reads its committed `.env.production` and passes values in (CLAUDE.md §3).
+5. **No per-site branches in packages.** No `if (site === …)`.
+6. **Placement:** one site needs it → site. Two or more → package (config option or block).
+7. **The block list is the single registry.** Frontend and CMS receive the same list.
+
+### Block contract
+
+A block is **one self-contained unit**. Platform code iterates over registered
+blocks and never names a specific block type.
+
+| Field | Purpose |
+| --- | --- |
+| `type` | Domain discriminator |
+| CMS schema + component id | Structure in the CMS |
+| `map` | CMS response → domain block |
+| `component` | Rendering |
+| `llms` | Contribution to `llms.txt` (required; `[]` is a valid answer) |
+| `schema` *(optional)* | JSON-LD contribution |
+
+Every field is required by the type, so a half-registered block cannot compile.
+
+### Distribution
+
+- Packages live in their own repo, are versioned with semver, and are published privately.
+- Sites pin versions. Automated update PRs per site.
+- Roll out to a pilot site first, then to the rest.
+- Breaking change → migration note or codemod.
+
+### Open question
+
+- Can a CMS plugin register block components from a package at runtime? If not, generate the schema files into the CMS app before its build (generated output, not committed).
+
+### Migration order
+
+1. deploy
+2. cms-plugin (permissions, seed, rebuild)
+3. Block contract, introduced inside the template first
+4. core, cms-adapter, frontend-integration
+5. Sites, one at a time
+
+---
+
+## Adding a block (current)
+
+Steps 2 and 5 are compiler-enforced. Step 4 is not.
+
+1. **Domain type**: interface in `shared-types`, added to the `Block` union.
+2. **Block id**: entry in `BLOCK_COMPONENTS` (`satisfies` enforces it).
+3. **CMS component**: `apps/cms/src/components/blocks/<name>.json`, added to the dynamic zones of `page` and, if reusable, `shared-block`.
+4. **Adapter**: `case` in `mapper.ts` + populate entry in `strapi.ts`. Without populate, nested fields arrive empty. Check this first when a block looks half-filled.
+5. **Rendering + `llms.txt`**: component in `components/blocks/`, `case` in `BlockRenderer`, `case` in `llms.ts` (a `never` branch enforces it).
+
+Optional: JSON-LD in `seo.ts`.
 
 ## Adding a content type
 
-Beyond the block steps, a new content type needs:
+- Schema under `apps/cms/src/api/<name>/`
+- Read actions in `setPublicPermissions`, **only if the frontend reads it**. Never visitor-created data.
+- `WATCHED` in `rebuild.ts` if changes should rebuild the site
+- `CONTENT_TYPES` in `seed.ts`
+- Repository method + adapter implementation if pages read it
 
-- a schema under `apps/cms/src/api/<name>/content-types/<name>/`
-- its read actions in `setPublicPermissions` (`apps/cms/src/index.ts`) — but
-  only if the frontend actually reads it. Anything a visitor creates, such as
-  form submissions, must stay off that list.
-- an entry in `WATCHED` (`apps/cms/src/rebuild.ts`) if changes to it should
-  rebuild the site
-- an entry in `CONTENT_TYPES` (`apps/cms/src/seed.ts`) so it counts as "the
-  site already has content"
-- methods on `CmsRepository` and the adapter, if pages need to read it
+## Mechanisms
 
-## Reusable content blocks
+**Shared blocks**
+- The adapter fetches all shared blocks once and splices them into the page in place of each `reference`.
+- The domain model has no `reference` type.
+- Shared blocks cannot contain references, so cycles are impossible by construction.
 
-A content type `shared-block` holds a name plus a dynamic zone. The
-`blocks.reference` block points at one. The **Strapi adapter** resolves them:
-it fetches every shared block once, then replaces each reference with that
-block's contents.
+**Listing blocks**
+- The block stores only the selection (filters, limit). The component fetches through the repository at build time.
+- Repository methods take a query object, which is what such a block configures.
 
-Consequences worth knowing:
-
-- The domain model has **no** `reference` type. Pages and components only ever
-  see ordinary blocks and cannot tell a shared one from an inline one.
-- Shared blocks cannot contain references themselves — the `shared-block`
-  dynamic zone deliberately omits `blocks.reference` — so cycles are impossible
-  by construction rather than by a runtime guard.
-
-## Listing blocks fetch their own data
-
-When you add a listing block (posts, products, events), give the block only the
-*selection* — categories, a limit — and let the Astro component fetch through
-the repository at build time. A new entry then appears without anyone editing
-the page in the CMS.
-
-That is why `CmsRepository` methods take a query object rather than a long
-parameter list: the query object is what a listing block configures.
-
-## SEO & GEO are derived, not maintained
-
-- **JSON-LD** comes from the blocks (`src/lib/seo.ts`), so a page that gains an
-  FAQ block gains `FAQPage` markup automatically.
-- **`llms.txt`** ([llmstxt.org](https://llmstxt.org)) is generated from the
-  domain model at build time. Because step 5 is compiler-enforced, it cannot
-  silently fall behind the site.
+**SEO / GEO**
+- JSON-LD is derived from block types, not from slugs.
+- `llms.txt` is generated from the domain model and cannot fall behind (step 5).
