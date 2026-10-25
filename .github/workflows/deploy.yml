@@ -6,7 +6,7 @@ name: Deploy
 #
 # This file is the CALLER, and the template for a site's own deploy.yml. The
 # logic lives in the reusable workflows; a site references them by tag:
-#   uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-cms.yml@v1
+#   uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-cms.yml@vX.Y.Z
 # (this repo uses ./ paths because it is the platform repo itself).
 #
 # Values come from repository variables and secrets and are passed
