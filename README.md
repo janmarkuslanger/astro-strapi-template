@@ -94,7 +94,6 @@ grep -rl "@project/\|PROJECT\|example\.com" . --exclude-dir=node_modules
 Then work through:
 
 - [ ] Package names (`@project/*`) and the root `package.json` name
-- [ ] The consent storage key in `apps/web/src/lib/consent.ts`
 - [ ] `site` in `apps/web/astro.config.mjs` — canonicals and the sitemap need it
 - [ ] `apps/web/.env.production` — the public CMS URL, and a GA id if you want
       analytics. **This file is committed on purpose**; see [`CLAUDE.md`](CLAUDE.md) §3
@@ -113,9 +112,9 @@ apps/
   web/                    Astro, static output
     .env.production       committed: public build config (CLAUDE.md §3)
     src/lib/cms/          client.ts (wiring) · types.ts (site domain types)
-    src/lib/consent*.ts   service-agnostic consent store + registry
+    src/lib/consent-services.ts   which services need consent (the registry)
     src/blocks/           one folder per block + Block union and registry (index.ts)
-    src/components/       ConsentBanner, ConsentGate, BlockRenderer
+    src/components/       ConsentBanner, ConsentGate (markup; behaviour from the astro package)
   cms/                    Strapi 5
     config/               server, database, middlewares, plugins
     src/index.ts          bootstrap: public actions, seed steps, watched types
@@ -124,6 +123,7 @@ apps/
 packages/                 platform packages, published to npm
   core/                   domain types, block contract, llms.txt, JSON-LD
   cms-strapi/             Strapi adapter, defineBlock
+  astro/                  BlockRenderer, consent store + banner/gate behaviour, analytics
   strapi-kit/             CMS side: permissions, one-time seed, publish → rebuild
   shared-content/         fixtures in Strapi response format (site-owned)
 docs/

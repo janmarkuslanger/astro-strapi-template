@@ -1,7 +1,8 @@
 ---
 /**
  * Generic GDPR consent banner. Renders every service registered in
- * `consent-services.ts` as a checkbox.
+ * `consent-services.ts` as a checkbox. Markup, styling and copy are the
+ * site's; the behaviour comes from `initConsentBanner` (@janmarkuslanger/astro).
  *
  * Renders NOTHING when no service is registered — which is the answer to
  * "why is there no banner?" on a site without third-party services, and the
@@ -84,65 +85,18 @@ import { CONSENT_SERVICES } from "../lib/consent-services";
 
 <script>
   import { CONSENT_SERVICES } from "../lib/consent-services";
-  import { getChoices, saveChoices, resetConsent } from "../lib/consent";
-  import { bindAnalyticsToConsent, trackEvent } from "../lib/analytics";
+  import {
+    bindAnalyticsToConsent,
+    initConsentBanner,
+    trackMailtoClicks,
+  } from "@janmarkuslanger/astro";
 
   // The measurement id is a build-time value from .env.production — never a
   // gtag snippet in the markup (CLAUDE.md §7).
   bindAnalyticsToConsent(import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? "");
 
   const banner = document.getElementById("consent-banner");
+  if (banner) initConsentBanner(banner, CONSENT_SERVICES.map((s) => s.id));
 
-  if (banner) {
-    const boxes = () =>
-      Array.from(
-        banner.querySelectorAll<HTMLInputElement>('input[name="consent-service"]')
-      );
-
-    const show = () => {
-      const stored = getChoices() ?? {};
-      for (const box of boxes()) box.checked = stored[box.value] === true;
-      banner.classList.remove("hidden");
-    };
-    const hide = () => banner.classList.add("hidden");
-
-    const decide = (value: (id: string) => boolean) => {
-      saveChoices(
-        Object.fromEntries(CONSENT_SERVICES.map((s) => [s.id, value(s.id)]))
-      );
-      hide();
-    };
-
-    // Ask only while at least one registered service has no decision yet.
-    const stored = getChoices();
-    const undecided = CONSENT_SERVICES.some((s) => !stored || !(s.id in stored));
-    if (undecided) show();
-
-    banner
-      .querySelector("[data-consent-accept-all]")
-      ?.addEventListener("click", () => decide(() => true));
-
-    banner
-      .querySelector("[data-consent-decline]")
-      ?.addEventListener("click", () => decide(() => false));
-
-    banner.querySelector("[data-consent-save]")?.addEventListener("click", () => {
-      const checked = new Set(boxes().filter((b) => b.checked).map((b) => b.value));
-      decide((id) => checked.has(id));
-    });
-
-    // Footer "cookie settings": clear decisions and ask again.
-    document.querySelectorAll("[data-consent-settings]").forEach((el) =>
-      el.addEventListener("click", () => {
-        resetConsent();
-        show();
-      })
-    );
-  }
-
-  // Email clicks are a conversion path worth measuring. A no-op without consent.
-  document.addEventListener("click", (event) => {
-    const link = (event.target as Element | null)?.closest?.('a[href^="mailto:"]');
-    if (link) trackEvent("mailto_click", { page_path: location.pathname });
-  });
+  trackMailtoClicks();
 </script>

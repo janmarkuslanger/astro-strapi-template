@@ -6,7 +6,7 @@
  * The "home" slug renders at "/" so editors do not need a special case.
  */
 import BaseLayout from "../layouts/BaseLayout.astro";
-import BlockRenderer from "../components/blocks/BlockRenderer.astro";
+import BlockRenderer from "@janmarkuslanger/astro/BlockRenderer.astro";
 import { BLOCKS } from "../blocks";
 import { cms } from "../lib/cms/client";
 import { pageSchemas } from "@janmarkuslanger/site-core";
@@ -30,5 +30,5 @@ const siteUrl = String(Astro.site ?? "").replace(/\/$/, "");
   description={page.seo.description}
   schemas={pageSchemas(page, global, siteUrl, BLOCKS)}
 >
-  <BlockRenderer blocks={page.blocks} />
+  <BlockRenderer blocks={page.blocks} registry={BLOCKS} />
 </BaseLayout>

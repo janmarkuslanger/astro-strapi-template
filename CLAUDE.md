@@ -273,14 +273,15 @@ a fresh install works without manual steps.
 The consent system is **service-agnostic**. Analytics is just the first
 consumer:
 
-- `lib/consent.ts` — generic store: one decision per service in `localStorage`,
-  a change event, `onConsentChange(id, cb)` for consumers.
-- `lib/consent-services.ts` — the **registry**. The banner renders itself from
-  this list; an empty list renders nothing at all.
-- `ConsentBanner.astro` — checkbox per service. "Accept all" and "Decline" carry
-  equal visual weight (no dark patterns).
-- `ConsentGate.astro` — two-click gate for embeds; slot content enters the DOM
-  only after consent.
+- `@janmarkuslanger/astro` — the behaviour: generic store (one decision per
+  service in `localStorage`, a change event, `onConsentChange(id, cb)`),
+  `initConsentBanner`, `initConsentGates`, consent-gated GA loading.
+- `lib/consent-services.ts` (site) — the **registry**. The banner renders itself
+  from this list; an empty list renders nothing at all.
+- `ConsentBanner.astro` (site) — markup and copy, checkbox per service. "Accept
+  all" and "Decline" carry equal visual weight (no dark patterns).
+- `ConsentGate.astro` (site) — two-click gate for embeds; slot content enters
+  the DOM only after consent.
 
 **Never paste a gtag.js snippet into the source.** It would load on page view,
 before consent, defeating the whole system. The measurement ID is configuration

@@ -1,18 +1,18 @@
 /**
  * Generic consent manager (GDPR opt-in).
  *
- * Services are registered in `consent-services.ts`; this store only keeps
- * decisions and notifies consumers. It knows nothing about Google Analytics
+ * Services are registered by the site (its consent-services list); this store
+ * only keeps decisions and notifies consumers. It knows nothing about Google Analytics
  * & co., which is what makes it reusable for any service (analytics, embeds,
  * maps, …).
  *
  * Browser-only.
  */
 
-// Change PROJECT to the project slug. Bump the suffix if the stored shape ever
-// changes — an old value must never be read as a new one.
-const STORAGE_KEY = "PROJECT-consent-v1";
-const EVENT_NAME = "PROJECT:consent-changed";
+// localStorage is per origin, so no site prefix is needed. Bump the suffix if
+// the stored shape ever changes — an old value must never be read as a new one.
+const STORAGE_KEY = "consent-v1";
+const EVENT_NAME = "consent-changed";
 
 /** serviceId → granted? */
 export type ConsentChoices = Record<string, boolean>;
