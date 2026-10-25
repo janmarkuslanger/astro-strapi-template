@@ -201,6 +201,8 @@ A block is one self-contained definition. Full detail in
 2. Add the type to the `Block` union in `apps/web/src/blocks/index.ts`.
 3. Register it in `BLOCKS` in the same file — *the build fails without this.*
 4. Create the Strapi component and register it in the dynamic zones.
+5. Test `map`, `llms` and the component in `apps/web/test/<name>.test.ts`
+   (template: `rich-text.test.ts`).
 
 Nested fields deeper than one level need an explicit `cms.populate`, or they
 arrive empty. If a new block looks half-filled, start there.

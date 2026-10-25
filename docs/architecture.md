@@ -109,12 +109,13 @@ CMS-agnostic.
 
 ## Adding a block (current)
 
-Step 3 is compiler-enforced. Step 4 is not.
+Step 3 is compiler-enforced. Steps 4 and 5 are not.
 
 1. **Block module**: `apps/web/src/blocks/<name>/` with its domain type, `defineBlock` (from the adapter package) and the component. Requires `cms`, `component`, `llms`; `jsonLd` is optional.
 2. **Domain type** into the `Block` union in `apps/web/src/blocks/index.ts`.
 3. **Register** in `BLOCKS` in the same file. A union member without an entry fails the build.
 4. **CMS component**: `apps/cms/src/components/blocks/<name>.json`, added to the dynamic zones of `page` and, if reusable, `shared-block`.
+5. **Test**: `apps/web/test/<name>.test.ts` — `cms.map`, `llms`, the component (template: `rich-text.test.ts`).
 
 Nested relations or media deeper than one level need an explicit `cms.populate`, otherwise they arrive empty. Check this first when a block looks half-filled.
 
