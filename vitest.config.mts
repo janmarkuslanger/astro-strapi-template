@@ -14,8 +14,8 @@ export default defineConfig({
         extends: true,
         resolve: { alias: sourceAliases },
         test: {
-          name: "packages",
-          include: ["packages/*/test/**/*.test.ts"],
+          name: "platform",
+          include: ["packages/*/test/**/*.test.ts", "scripts/test/**/*.test.ts"],
           exclude: ["packages/astro/test/components/**"],
         },
       },

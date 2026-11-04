@@ -14,8 +14,9 @@
     "build:web": "npm run build:packages && npm run build --workspace apps/web",
     "build:cms": "npm run build:packages && npm run build --workspace apps/cms",
     "preview:web": "npm run preview --workspace apps/web",
-    "test": "tsc -p tsconfig.test.json && vitest run",
-    "test:watch": "vitest"
+    "test": "npm run build:packages && tsc -p tsconfig.test.json && vitest run",
+    "test:watch": "vitest",
+    "init-site": "node scripts/init-site.mjs"
   },
   "engines": {
     "node": ">=20.0.0"
