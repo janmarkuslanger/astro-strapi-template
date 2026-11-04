@@ -1,9 +1,17 @@
 {
   "collectionName": "components_shared_seos",
-  "info": { "displayName": "SEO", "icon": "search" },
+  "info": {
+    "displayName": "SEO",
+    "icon": "search"
+  },
   "options": {},
   "attributes": {
-    "title": { "type": "string" },
-    "description": { "type": "text", "maxLength": 200 }
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "text",
+      "maxLength": 200
+    }
   }
 }

@@ -9,6 +9,11 @@
   "options": {
     "draftAndPublish": true
   },
+  "pluginOptions": {
+    "content-type-builder": {
+      "visible": false
+    }
+  },
   "attributes": {
     "title": {
       "type": "string",
@@ -27,8 +32,8 @@
     "blocks": {
       "type": "dynamiczone",
       "components": [
-        "blocks.rich-text",
-        "blocks.reference"
+        "blocks.reference",
+        "blocks.rich-text"
       ]
     }
   }
