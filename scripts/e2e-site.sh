@@ -91,7 +91,9 @@ sed -e "s|^APP_KEYS=.*|APP_KEYS=$(secret),$(secret)|" \
     -e "s|^JWT_SECRET=.*|JWT_SECRET=$(secret)|" \
     "$SITE/apps/cms/.env.example" > "$SITE/apps/cms/.env"
 (cd "$SITE" && npm run build:cms >/dev/null)
-(cd "$SITE/apps/cms" && PORT="$PORT" NODE_ENV=production npx strapi start > "$WORK/strapi.log" 2>&1) &
+# exec, not npx: the background PID must be Strapi itself, or the EXIT trap
+# kills a wrapper and leaves Strapi holding the port.
+(cd "$SITE/apps/cms" && PORT="$PORT" NODE_ENV=production exec "$SITE/node_modules/.bin/strapi" start > "$WORK/strapi.log" 2>&1) &
 STRAPI_PID=$!
 for _ in $(seq 1 60); do
   kill -0 "$STRAPI_PID" 2>/dev/null || { cat "$WORK/strapi.log"; exit 1; }
