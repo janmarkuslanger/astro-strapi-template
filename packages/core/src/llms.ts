@@ -1,4 +1,5 @@
 import { definitionFor, type BlockRegistry } from "./blocks.js";
+import { pageHref, slugOfHref } from "./paths.js";
 import type { BaseBlock, Page, SiteGlobal } from "./types.js";
 
 /**
@@ -30,19 +31,16 @@ export function buildLlmsTxt<B extends BaseBlock>(
 
   // Navigation order is the site's own idea of importance — reuse it instead
   // of inventing a ranking.
-  // "/" is the home page, whose slug is "home" (see the href below).
-  const slugOf = (href: string) => href.replace(/^\/|\/$/g, "") || "home";
   const rank = (slug: string) => {
-    const i = global.navigation.findIndex((n) => slugOf(n.href) === slug);
+    const i = global.navigation.findIndex((n) => slugOfHref(n.href) === slug);
     return i === -1 ? Number.MAX_SAFE_INTEGER : i;
   };
   const ordered = [...pages].sort((a, b) => rank(a.slug) - rank(b.slug));
 
   lines.push("\n## Pages\n");
   for (const page of ordered) {
-    const href = page.slug === "home" ? "/" : `/${page.slug}/`;
     lines.push(`### ${page.title}`);
-    lines.push(`${siteUrl}${href}`);
+    lines.push(`${siteUrl}${pageHref(page.slug)}`);
     if (page.seo.description) lines.push(page.seo.description);
 
     const facts = page.blocks.flatMap(

@@ -3,21 +3,23 @@
  * Every CMS page, rendered from its blocks. New pages need no code — that is
  * the point of the block model.
  *
- * The "home" slug renders at "/" so editors do not need a special case.
+ * The "home" slug renders at "/" (pagePaths), so editors need no special
+ * case. Layout and markup are the site's; the routing is the platform's.
  */
 import BaseLayout from "../layouts/BaseLayout.astro";
 import BlockRenderer from "@janmarkuslanger/powerhouse-astro/BlockRenderer.astro";
+import { pagePaths } from "@janmarkuslanger/powerhouse-astro";
 import { BLOCKS } from "../blocks";
 import { cms } from "../lib/cms/client";
 import { pageSchemas } from "@janmarkuslanger/powerhouse-core";
+import type { InferGetStaticPropsType } from "astro";
 
-export async function getStaticPaths() {
-  const pages = await cms.listPages();
-  return pages.map((page) => ({
-    params: { slug: page.slug === "home" ? undefined : page.slug },
-    props: { page },
-  }));
+// A function declaration: with `export const` (Astro 4) the build ran but
+// every page rendered without props.
+export function getStaticPaths() {
+  return pagePaths(cms);
 }
+type Props = InferGetStaticPropsType<typeof getStaticPaths>;
 
 const { page } = Astro.props;
 const global = await cms.getGlobal();

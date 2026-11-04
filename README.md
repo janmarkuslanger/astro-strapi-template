@@ -173,7 +173,7 @@ apps/
     src/blocks/           one folder per block + Block union and registry (index.ts)
     src/components/       ConsentBanner, ConsentGate (markup; behaviour from the astro package)
   cms/                    Strapi 5
-    config/               server, database, middlewares, plugins
+    config/               server, database, middlewares, plugins (one-liners over strapi-kit)
     src/index.ts          bootstrap: public actions, seed steps, watched types
     src/api/              content types (platform ones generated, see below)
     src/components/       block + shared components (platform ones generated)
@@ -182,8 +182,8 @@ apps/
 packages/                 platform packages, published as @janmarkuslanger/powerhouse-<dir>
   core/                   domain types, block contract, llms.txt, JSON-LD
   cms-strapi/             Strapi adapter, defineBlock
-  astro/                  BlockRenderer, consent store + banner/gate behaviour, analytics
-  strapi-kit/             CMS side: platform schemas, permissions, one-time seed, publish → rebuild
+  astro/                  BlockRenderer, consent store + banner/gate behaviour, analytics, routes
+  strapi-kit/             CMS side: platform schemas, config, permissions, one-time seed, publish → rebuild
   shared-content/         fixtures in Strapi response format (site-owned)
   */test/                 unit tests per package (see Tests below)
 scripts/                  set-version · init-site · e2e-site (platform tooling, removed by init-site)
