@@ -103,6 +103,12 @@ CMS-agnostic.
 
 ### Platform schemas
 
+> **Platform schemas only grow.** A release may add types, components and
+> optional fields; it never renames, removes or tightens a field. Every site's
+> live database holds data in these fields, and Strapi drops a column that
+> leaves the schema — with its data. A change that cannot be additive ships
+> with its migration (see *Moving an existing site onto the platform*).
+
 The platform's content types and components (`page`, `shared-block`, `global`,
 `shared.seo`, `shared.link`, `blocks.reference`) ship in the package (`schemas/`)
 and are **generated** into `apps/cms/src/` before every `strapi develop` and
@@ -138,6 +144,24 @@ file. The environment variable names in the config helpers are part of the
 platform.
 
 The home page convention lives in core: `HOME_SLUG`, `pageHref`, `slugOfHref`.
+
+### Moving an existing site onto the platform
+
+A site built before the platform usually names some fields differently. Strapi
+runs a site's own migrations (`apps/cms/database/migrations/*.js`, once each,
+in a transaction) **before** it syncs the schema, so the data can move to the
+platform's names first:
+
+- Columns: rename in place (`knex.schema.alterTable(t, (x) => x.renameColumn(a, b))`).
+- Relations: their link table, indexes and keys derive from the field name.
+  Park the old table under a name Strapi does not track, then copy the rows
+  into the new link table in `bootstrap` (it exists only after the sync) and
+  drop the parked table.
+- Test on a copy of the live database with the site's own Strapi version,
+  for every database the site runs on, and compare the API before and after.
+
+yoga-by-julia is the worked example (`database/migrations/`,
+`src/platform-migration.ts`).
 
 ### Not in packages (yet)
 
