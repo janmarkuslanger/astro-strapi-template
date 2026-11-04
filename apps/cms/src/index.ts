@@ -1,5 +1,7 @@
 import type { Core } from "@strapi/strapi";
 import {
+  PLATFORM_CONTENT_TYPES,
+  PLATFORM_PUBLIC_ACTIONS,
   registerRebuildTrigger,
   seedContent,
   setPublicPermissions,
@@ -10,27 +12,18 @@ const seedPages: any[] = require("@project/shared-content/pages.json");
 const seedGlobal: any = require("@project/shared-content/global.json");
 
 /**
- * What the frontend may read without a token. Add each new content type the
- * frontend reads. Deliberately absent: anything private, e.g. form
- * submissions — those must never be readable over the public API.
+ * What the frontend may read without a token: the platform types plus each
+ * site content type the frontend reads. Deliberately absent: anything
+ * private, e.g. form submissions — those must never be readable over the
+ * public API.
  */
-const PUBLIC_ACTIONS = [
-  "api::page.page.find",
-  "api::page.page.findOne",
-  "api::shared-block.shared-block.find",
-  "api::shared-block.shared-block.findOne",
-  "api::global.global.find",
-];
+const PUBLIC_ACTIONS = [...PLATFORM_PUBLIC_ACTIONS];
 
 /**
  * Content types visible on the site; a change to one rebuilds it. Not here:
  * form submissions — a visitor sending a message must not cause a deploy.
  */
-const WATCHED = [
-  "api::page.page",
-  "api::shared-block.shared-block",
-  "api::global.global",
-];
+const WATCHED = [...PLATFORM_CONTENT_TYPES];
 
 export default {
   register() {},

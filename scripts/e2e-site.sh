@@ -5,6 +5,7 @@
 #   link) → npm test → Strapi build, seed, start → site build against it.
 #
 # Usage: scripts/e2e-site.sh [work-dir]   (default: a new temp dir, kept for inspection)
+#        E2E_PORT=1338 scripts/e2e-site.sh  (CMS port, default 1337)
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -13,6 +14,8 @@ SITE="$WORK/site"
 TARBALLS="$WORK/tarballs"
 PACKAGES=(core cms-strapi astro strapi-kit)
 STRAPI_PID=""
+PORT="${E2E_PORT:-1337}"
+CMS="http://127.0.0.1:$PORT"
 
 cleanup() { [ -n "$STRAPI_PID" ] && kill "$STRAPI_PID" 2>/dev/null || true; }
 trap cleanup EXIT
@@ -72,6 +75,13 @@ done
 step "npm test"
 (cd "$SITE" && npm test)
 
+# Another Strapi on the port would answer the health check and the site
+# build would pass against the wrong CMS.
+if curl -s -o /dev/null "$CMS"; then
+  echo "Port $PORT is already in use; set E2E_PORT to a free port." >&2
+  exit 1
+fi
+
 step "Strapi: build, seed, start"
 secret() { openssl rand -base64 16; }
 sed -e "s|^APP_KEYS=.*|APP_KEYS=$(secret),$(secret)|" \
@@ -81,16 +91,19 @@ sed -e "s|^APP_KEYS=.*|APP_KEYS=$(secret),$(secret)|" \
     -e "s|^JWT_SECRET=.*|JWT_SECRET=$(secret)|" \
     "$SITE/apps/cms/.env.example" > "$SITE/apps/cms/.env"
 (cd "$SITE" && npm run build:cms >/dev/null)
-(cd "$SITE/apps/cms" && NODE_ENV=production npx strapi start > "$WORK/strapi.log" 2>&1) &
+# exec, not npx: the background PID must be Strapi itself, or the EXIT trap
+# kills a wrapper and leaves Strapi holding the port.
+(cd "$SITE/apps/cms" && PORT="$PORT" NODE_ENV=production exec "$SITE/node_modules/.bin/strapi" start > "$WORK/strapi.log" 2>&1) &
 STRAPI_PID=$!
 for _ in $(seq 1 60); do
-  curl -sf -o /dev/null http://127.0.0.1:1337/api/pages && break
+  kill -0 "$STRAPI_PID" 2>/dev/null || { cat "$WORK/strapi.log"; exit 1; }
+  curl -sf -o /dev/null "$CMS/api/pages" && break
   sleep 2
 done
-curl -sf -o /dev/null http://127.0.0.1:1337/api/pages || { cat "$WORK/strapi.log"; exit 1; }
+curl -sf -o /dev/null "$CMS/api/pages" || { cat "$WORK/strapi.log"; exit 1; }
 
 step "Site build against the CMS"
-(cd "$SITE" && STRAPI_URL=http://127.0.0.1:1337 npm run build:web >/dev/null)
+(cd "$SITE" && STRAPI_URL="$CMS" npm run build:web >/dev/null)
 for page in index.html about/index.html llms.txt; do
   [ -s "$SITE/apps/web/dist/$page" ] || { echo "missing: dist/$page" >&2; exit 1; }
 done

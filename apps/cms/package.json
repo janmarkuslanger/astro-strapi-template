@@ -3,8 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "schemas": "node -e \"require('@janmarkuslanger/powerhouse-strapi-kit/dist/schemas-cli.js').main()\"",
+    "predevelop": "npm run schemas",
     "develop": "strapi develop",
     "start": "strapi start",
+    "prebuild": "npm run schemas",
     "build": "strapi build",
     "strapi": "strapi"
   },

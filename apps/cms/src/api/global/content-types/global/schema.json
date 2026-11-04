@@ -9,6 +9,11 @@
   "options": {
     "draftAndPublish": false
   },
+  "pluginOptions": {
+    "content-type-builder": {
+      "visible": false
+    }
+  },
   "attributes": {
     "siteName": {
       "type": "string",

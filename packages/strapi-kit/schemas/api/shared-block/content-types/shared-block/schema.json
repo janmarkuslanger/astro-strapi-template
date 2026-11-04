@@ -1,0 +1,28 @@
+{
+  "kind": "collectionType",
+  "collectionName": "shared_blocks",
+  "info": {
+    "singularName": "shared-block",
+    "pluralName": "shared-blocks",
+    "displayName": "Reusable block"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "blocks": {
+      "type": "dynamiczone",
+      "components": []
+    }
+  }
+}

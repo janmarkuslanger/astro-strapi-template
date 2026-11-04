@@ -175,13 +175,15 @@ apps/
   cms/                    Strapi 5
     config/               server, database, middlewares, plugins
     src/index.ts          bootstrap: public actions, seed steps, watched types
-    src/api/              content types
-    src/components/       block + shared components
+    src/api/              content types (platform ones generated, see below)
+    src/components/       block + shared components (platform ones generated)
+    schema-extensions/    site additions to platform schemas
+    powerhouse-schemas.json   manifest of the generated schema files
 packages/                 platform packages, published as @janmarkuslanger/powerhouse-<dir>
   core/                   domain types, block contract, llms.txt, JSON-LD
   cms-strapi/             Strapi adapter, defineBlock
   astro/                  BlockRenderer, consent store + banner/gate behaviour, analytics
-  strapi-kit/             CMS side: permissions, one-time seed, publish → rebuild
+  strapi-kit/             CMS side: platform schemas, permissions, one-time seed, publish → rebuild
   shared-content/         fixtures in Strapi response format (site-owned)
   */test/                 unit tests per package (see Tests below)
 scripts/                  set-version · init-site · e2e-site (platform tooling, removed by init-site)
@@ -226,7 +228,7 @@ A block is one self-contained definition. Full detail in
    and the component.
 2. Add the type to the `Block` union in `apps/web/src/blocks/index.ts`.
 3. Register it in `BLOCKS` in the same file — *the build fails without this.*
-4. Create the Strapi component and register it in the dynamic zones.
+4. Create the Strapi component in `apps/cms/src/components/blocks/`; the dynamic zones pick it up on the next CMS start or build.
 5. Test `map`, `llms` and the component in `apps/web/test/<name>.test.ts`
    (template: `rich-text.test.ts`).
 
