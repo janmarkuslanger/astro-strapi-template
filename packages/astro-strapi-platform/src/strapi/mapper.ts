@@ -53,8 +53,12 @@ export interface StrapiBlockMapping<B extends BaseBlock> {
    *   populate: ["[populate][items][populate]=link", "[populate][image]=true"]
    */
   populate?: string | string[];
-  /** Strapi component → domain block, without `type` (added by the mapper). */
-  map(raw: any, ctx: MapContext): Omit<B, "type">;
+  /**
+   * Strapi component → domain block, without `type` (added by the mapper).
+   * `null` leaves the block out, e.g. a call to action whose link is missing —
+   * like an unknown component, it must not take the page down.
+   */
+  map(raw: any, ctx: MapContext): Omit<B, "type"> | null;
 }
 
 /** A block registry whose CMS side is Strapi: one definition per member of `B`. */
@@ -153,7 +157,8 @@ export function mapBlocks(
 
     const entry = byComponent.get(item.__component);
     if (!entry) continue;
-    blocks.push({ ...entry.m.map(item, ctx), type: entry.type });
+    const mapped = entry.m.map(item, ctx);
+    if (mapped) blocks.push({ ...mapped, type: entry.type });
   }
 
   return blocks;

@@ -290,3 +290,18 @@ describe("blocks in a site's own content type", () => {
     expect(adapter().populateBlocks("body")).toContain("populate[body][on][blocks.image][populate][image]=true");
   });
 });
+
+describe("a block mapping that returns null", () => {
+  it("leaves that block out and keeps the others", async () => {
+    const registry = {
+      ...blocks,
+      text: { ...blocks.text, cms: { ...blocks.text.cms, map: (raw: any) => (raw.body ? { html: raw.body } : null) } },
+    };
+    serve({ "/api/shared-blocks": () => json({ data: [] }) });
+    const mapped = await new StrapiCmsAdapter<TestBlock>({ url: URL_BUILD, blocks: registry }).mapBlocks([
+      { __component: "blocks.text" },
+      { __component: "blocks.text", body: "kept" },
+    ]);
+    expect(mapped).toEqual([{ type: "text", html: "kept" }]);
+  });
+});
