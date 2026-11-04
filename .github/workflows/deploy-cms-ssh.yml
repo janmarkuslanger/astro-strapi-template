@@ -197,7 +197,12 @@ jobs:
             # stamp is written only AFTER success, so an interrupted run never
             # claims a healthy tree.
             STAMP="$SHARED_DIR/package-lock.installed"
-            if [ -x node_modules/.bin/strapi ] && cmp -s package-lock.json "$STAMP"; then
+            # With a local site rebuild (web-root set) the server also needs a
+            # working astro: a tree with strapi but without it would pass as
+            # healthy and every publish-triggered rebuild would then fail.
+            if [ -x node_modules/.bin/strapi ] \
+               && { [ -z "$WEB_ROOT" ] || [ -x node_modules/.bin/astro ]; } \
+               && cmp -s package-lock.json "$STAMP"; then
               echo "Dependencies unchanged — install skipped."
             else
               rm -f "$STAMP"

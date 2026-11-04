@@ -157,6 +157,47 @@ export class StrapiCmsAdapter<
    *   json.data.map((e) => ({ title: e.title, cover: strapi.context.image(e.cover) }));
    */
   async get(path: string): Promise<any> {
+    return this.request(path);
+  }
+
+  /**
+   * Every entry of a collection, page by page. Strapi answers a plain list
+   * request with its first 25 entries only, so a site with more pages than
+   * that would silently lose the rest.
+   *
+   * @param path collection path with its query, e.g. `/api/pages?populate[seo]=true`
+   */
+  async getAll(path: string): Promise<any[]> {
+    const separator = path.includes("?") ? "&" : "?";
+    const entries: any[] = [];
+    for (let page = 1; ; page++) {
+      const json = await this.request(
+        `${path}${separator}pagination[page]=${page}&pagination[pageSize]=100`
+      );
+      entries.push(...(json.data ?? []));
+      const pageCount = json.meta?.pagination?.pageCount ?? 1;
+      if (page >= pageCount) return entries;
+    }
+  }
+
+  /**
+   * Populate query for a dynamic zone of a site's own content type that holds
+   * the registered blocks (and references), e.g. a blog post's `blocks`.
+   */
+  populateBlocks(zone = "blocks"): string {
+    return blockPopulate(this.blocks, zone);
+  }
+
+  /**
+   * Maps a dynamic zone of a site's own content type with the registered
+   * blocks, resolving references like on pages. Fetch it with
+   * `populateBlocks(zone)`.
+   */
+  async mapBlocks(raw: any[] | null | undefined): Promise<B[]> {
+    return mapBlocks(raw ?? [], this.mediaUrl, this.blocks, await this.blockResolver()) as B[];
+  }
+
+  private async request(path: string): Promise<any> {
     const headers: Record<string, string> = {};
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
 
@@ -179,9 +220,9 @@ export class StrapiCmsAdapter<
    */
   private async blockResolver(): Promise<BlockResolver> {
     if (!this.sharedBlocks) {
-      const json = await this.get(`/api/shared-blocks?${this.populate}`);
+      const entries = await this.getAll(`/api/shared-blocks?${this.populate}`);
       this.sharedBlocks = new Map(
-        (json.data ?? []).map((entry: any) => [
+        entries.map((entry: any) => [
           String(entry.documentId ?? entry.id),
           mapBlocks(entry.blocks ?? [], this.mediaUrl, this.blocks),
         ])
@@ -199,9 +240,9 @@ export class StrapiCmsAdapter<
   // Mapped blocks are B by construction: only registered types survive the
   // mapper. The cast states that; it cannot be checked across the CMS boundary.
   async listPages(): Promise<Page<B, P>[]> {
-    const json = await this.get(`/api/pages?${this.pagePopulate}`);
+    const entries = await this.getAll(`/api/pages?${this.pagePopulate}`);
     const resolve = await this.blockResolver();
-    return (json.data ?? []).map(
+    return entries.map(
       (e: any) =>
         mapPage(e, this.mediaUrl, this.blocks, resolve, this.pageExtension) as Page<B, P>
     );

@@ -1,6 +1,6 @@
 {
   "name": "@janmarkuslanger/astro-strapi-platform",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Astro + Strapi platform: domain model and block contract, Strapi adapter, Astro rendering and consent, Strapi schemas and bootstrap helpers.",
   "license": "MIT",
   "type": "module",

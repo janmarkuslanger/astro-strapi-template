@@ -122,6 +122,10 @@ describe("mapPage", () => {
     expect(page).toEqual({ slug: "about", title: "About", seo: { title: "About us", description: "D" }, blocks: [] });
   });
 
+  it("falls back to the page title when the seo title was emptied in the panel", () => {
+    expect(mapPage({ slug: "a", title: "A", seo: { title: "", description: "" } }, MEDIA, mappings).seo.title).toBe("A");
+  });
+
   it("falls back to the page title when seo is missing", () => {
     expect(mapPage({ slug: "a", title: "A" }, MEDIA, mappings).seo).toEqual({ title: "A", description: "" });
   });
@@ -170,5 +174,19 @@ describe("site extensions", () => {
     expect(page).toMatchObject({ title: "A", extra: 1 });
     const global = mapGlobal({ siteName: "Acme" }, MEDIA, { map: () => ({ siteName: "x", phone: "1" }) });
     expect(global).toMatchObject({ siteName: "Acme", phone: "1" });
+  });
+});
+
+describe("blockPopulate", () => {
+  it("adds one parameter per populate fragment, in the given zone", () => {
+    const query = blockPopulate(
+      { multi: { component: "blocks.multi", populate: ["[populate][items][populate]=link", "[populate][image]=true"], map: () => ({}) } },
+      "body"
+    );
+    expect(query.split("&")).toEqual([
+      "populate[body][on][blocks.multi][populate][items][populate]=link",
+      "populate[body][on][blocks.multi][populate][image]=true",
+      "populate[body][on][blocks.reference][populate]=block",
+    ]);
   });
 });

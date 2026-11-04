@@ -252,3 +252,56 @@ describe("get and context, for the site's own content types", () => {
     );
   });
 });
+
+describe("more than one page of entries", () => {
+  const entry = (slug: string) => ({ slug, title: slug, blocks: [] });
+
+  it("reads every page of pages and shared blocks", async () => {
+    fetchMock.mockImplementation(async (input) => {
+      const url = decodeURIComponent(String(input));
+      if (url.includes("/api/shared-blocks")) return json({ data: [], meta: { pagination: { pageCount: 1 } } });
+      const page = Number(/pagination\[page\]=(\d+)/.exec(url)?.[1]);
+      return json({ data: [entry(`p${page}`)], meta: { pagination: { page, pageCount: 3 } } });
+    });
+    const pages = await adapter().listPages();
+    expect(pages.map((p) => p.slug)).toEqual(["p1", "p2", "p3"]);
+    expect(requestedUrls().filter((u) => u.includes("/api/pages")).every((u) => u.includes("pagination[pageSize]=100"))).toBe(true);
+  });
+});
+
+describe("blocks in a site's own content type", () => {
+  beforeEach(() => {
+    serve({
+      "/api/shared-blocks": () =>
+        json({ data: [{ documentId: "s1", blocks: [{ __component: "blocks.text", body: "shared" }] }] }),
+    });
+  });
+
+  it("maps a dynamic zone with the registered blocks and resolves references", async () => {
+    const mapped = await adapter().mapBlocks([
+      { __component: "blocks.text", body: "own" },
+      { __component: "blocks.reference", block: { documentId: "s1" } },
+      { __component: "blocks.unknown" },
+    ]);
+    expect(mapped.map((b) => (b.type === "text" ? b.html.trim() : b.type))).toEqual(["<p>own</p>", "<p>shared</p>"]);
+  });
+
+  it("builds the populate query for the site's zone", () => {
+    expect(adapter().populateBlocks("body")).toContain("populate[body][on][blocks.image][populate][image]=true");
+  });
+});
+
+describe("a block mapping that returns null", () => {
+  it("leaves that block out and keeps the others", async () => {
+    const registry = {
+      ...blocks,
+      text: { ...blocks.text, cms: { ...blocks.text.cms, map: (raw: any) => (raw.body ? { html: raw.body } : null) } },
+    };
+    serve({ "/api/shared-blocks": () => json({ data: [] }) });
+    const mapped = await new StrapiCmsAdapter<TestBlock>({ url: URL_BUILD, blocks: registry }).mapBlocks([
+      { __component: "blocks.text" },
+      { __component: "blocks.text", body: "kept" },
+    ]);
+    expect(mapped).toEqual([{ type: "text", html: "kept" }]);
+  });
+});

@@ -11,7 +11,10 @@
 
 // localStorage is per origin, so no site prefix is needed. Bump the suffix if
 // the stored shape ever changes — an old value must never be read as a new one.
-const STORAGE_KEY = "consent-v1";
+// Exported for a site moving its visitors' existing decisions over once: the
+// stored value is a JSON object of service id → boolean.
+export const CONSENT_STORAGE_KEY = "consent-v1";
+const STORAGE_KEY = CONSENT_STORAGE_KEY;
 const EVENT_NAME = "consent-changed";
 
 /** serviceId → granted? */
