@@ -17,12 +17,12 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "../..");
 
 describe("platformVersion", () => {
   it("reads the exact core version the web app pins", () => {
-    expect(platformVersion({ dependencies: { "@janmarkuslanger/powerhouse-core": "0.2.0" } })).toBe("0.2.0");
-    expect(platformVersion({ dependencies: { "@janmarkuslanger/powerhouse-core": "1.0.0-rc.1" } })).toBe("1.0.0-rc.1");
+    expect(platformVersion({ dependencies: { "@janmarkuslanger/powerhouse": "0.2.0" } })).toBe("0.2.0");
+    expect(platformVersion({ dependencies: { "@janmarkuslanger/powerhouse": "1.0.0-rc.1" } })).toBe("1.0.0-rc.1");
   });
 
   it.each([undefined, "^0.2.0", "*", "file:../core"])("rejects %s", (version) => {
-    const dependencies: Record<string, string> = version ? { "@janmarkuslanger/powerhouse-core": version } : {};
+    const dependencies: Record<string, string> = version ? { "@janmarkuslanger/powerhouse": version } : {};
     const pkg = { dependencies };
     expect(() => platformVersion(pkg)).toThrow("exact version");
   });
@@ -32,7 +32,7 @@ describe("sitePackageJson", () => {
   const pkg = {
     name: "acme",
     scripts: {
-      "build:packages": "npm run build -w packages/core",
+      "build:packages": "npm run build -w packages/powerhouse",
       "build:web": "npm run build:packages && npm run build --workspace apps/web",
       test: "npm run build:packages && tsc -p tsconfig.test.json && vitest run",
       "init-site": "node scripts/init-site.mjs",
@@ -99,10 +99,7 @@ describe("initSite", () => {
       "packages/shared-content",
       ".github/workflows",
       "scripts",
-      "packages/core",
-      "packages/cms-strapi",
-      "packages/astro",
-      "packages/strapi-kit",
+      "packages/powerhouse",
     ]) {
       copy(rel);
     }

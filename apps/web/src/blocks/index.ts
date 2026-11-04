@@ -1,4 +1,4 @@
-import type { StrapiBlockRegistry } from "@janmarkuslanger/powerhouse-cms-strapi";
+import type { StrapiBlockRegistry } from "@janmarkuslanger/powerhouse/strapi";
 import richText, { type RichTextBlock } from "./rich-text";
 
 /** Every block this site renders. Add a member per block. */

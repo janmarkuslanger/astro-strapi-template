@@ -1,0 +1,8 @@
+// ESM part: core and the Strapi adapter. strapi-kit is CommonJS (Strapi
+// loads its config with require) and builds with tsconfig.strapi-kit.json;
+// astro ships as source, compiled by the site's Astro.
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": "src" },
+  "include": ["src/core", "src/strapi"]
+}

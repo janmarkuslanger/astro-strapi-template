@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { Core } from "@strapi/strapi";
-import { databaseConfig } from "@janmarkuslanger/powerhouse-strapi-kit";
+import { databaseConfig } from "@janmarkuslanger/powerhouse/strapi-kit";
 
 /**
  * SQLite locally, Postgres in production (DATABASE_CLIENT). Compiled to

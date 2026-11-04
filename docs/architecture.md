@@ -41,19 +41,20 @@ Everything else (posts, heroes, forms, …) is per project.
 
 ## Platform packages
 
-> One change in a package reaches every site through a version bump, not a
-> re-implementation per site. Packages are published as
-> `@janmarkuslanger/powerhouse-<name>`. This repo is the platform repo; `apps/` is the
-> reference site and the starting point for new ones.
+> One change in the platform reaches every site through a version bump, not a
+> re-implementation per site. The platform is **one** npm package,
+> `@janmarkuslanger/powerhouse`, with one entry point per role. This repo is
+> the platform repo; `apps/` is the reference site and the starting point for
+> new ones.
 
 ### Roles
 
-| Role | Package | Responsibility | Knows |
+| Role | Entry point (`@janmarkuslanger/powerhouse/…`) | Responsibility | Knows |
 | --- | --- | --- | --- |
-| core | `powerhouse-core` | Domain types, block contract, repository interface, `llms.txt`, JSON-LD | nothing |
-| cms-adapter | `powerhouse-cms-strapi` | Fetching, retry, reference resolution, media URLs, `defineBlock` | core |
-| frontend-integration | `powerhouse-astro` | Block rendering, consent store + banner/gate behaviour, analytics, route logic | core |
-| cms-plugin | `powerhouse-strapi-kit` | Platform schemas, CMS config, permissions, one-time seeding, rebuild trigger | — |
+| core | `/core` | Domain types, block contract, repository interface, `llms.txt`, JSON-LD, page paths | nothing |
+| cms-adapter | `/strapi` | Fetching, retry, reference resolution, media URLs, `defineBlock` | core |
+| frontend-integration | `/astro`, `/astro/BlockRenderer.astro` | Block rendering, consent store + banner/gate behaviour, analytics, route logic | core |
+| cms-plugin | `/strapi-kit` (CommonJS, for the Strapi server) | Platform schemas, CMS config, permissions, one-time seeding, rebuild trigger | — |
 | deploy | `.github/workflows/deploy-*.yml` | Reusable CMS and site deploys | — |
 | blocks | — *(not yet)* | Library of reusable blocks | core |
 | site | `apps/*` | Config, design, copy, content, blocks, registry | all of the above |
@@ -91,10 +92,11 @@ CMS-agnostic.
 
 ### Distribution
 
-- All packages share **one version** (lockstep): `scripts/set-version.mjs`, tag `vX.Y.Z`, `release.yml` publishes to npm.
+- **One package, one version**: `scripts/set-version.mjs`, tag `vX.Y.Z`, `release.yml` publishes to npm.
+- The layer rules above are enforced by `packages/powerhouse/test/layers.test.ts`, since no package boundary does it any more. Sources live in `packages/powerhouse/src/<role>/`.
 - Prerelease tag (`vX.Y.Z-rc.1`) → npm dist-tag `next`; stable → `latest`.
 - A failed release is rerun on the same tag; versions already on npm are skipped.
-- Auth: `NPM_TOKEN` (granular, bypass 2FA) for the first release only, then trusted publishing. Steps: header of `release.yml`.
+- Auth: trusted publishing (OIDC), no stored token. It can only be set up for a package that exists, so the very first version is published once by hand; steps in the header of `release.yml`.
 - Sites pin that version in `package.json` **and** in `uses: …/deploy-*.yml@vX.Y.Z`. Updating a site = changing one number in both places.
 - Roll out to a pilot site first, then to the rest. Automated update PRs (Renovate) cover both.
 - Breaking change → migration note in the release; codemod when mechanical.
@@ -102,7 +104,7 @@ CMS-agnostic.
 ### Platform schemas
 
 The platform's content types and components (`page`, `shared-block`, `global`,
-`shared.seo`, `shared.link`, `blocks.reference`) ship in `powerhouse-strapi-kit`
+`shared.seo`, `shared.link`, `blocks.reference`) ship in the package (`schemas/`)
 and are **generated** into `apps/cms/src/` before every `strapi develop` and
 `strapi build` (`npm run schemas -w apps/cms` runs it by hand).
 

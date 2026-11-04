@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end check of the customer path, from this repo's working tree:
 #
-#   template copy → init-site → packages as published (npm pack, no workspace
+#   template copy → init-site → package as published (npm pack, no workspace
 #   link) → npm test → Strapi build, seed, start → site build against it.
 #
 # Usage: scripts/e2e-site.sh [work-dir]   (default: a new temp dir, kept for inspection)
@@ -12,7 +12,6 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="${1:-$(mktemp -d)}"
 SITE="$WORK/site"
 TARBALLS="$WORK/tarballs"
-PACKAGES=(core cms-strapi astro strapi-kit)
 STRAPI_PID=""
 PORT="${E2E_PORT:-1337}"
 CMS="http://127.0.0.1:$PORT"
@@ -22,12 +21,10 @@ trap cleanup EXIT
 
 step() { echo "==> $*"; }
 
-step "Packing platform packages"
+step "Packing the platform package"
 mkdir -p "$TARBALLS"
 (cd "$REPO" && npm run build:packages >/dev/null)
-for pkg in "${PACKAGES[@]}"; do
-  (cd "$REPO" && npm pack --workspace "packages/$pkg" --pack-destination "$TARBALLS" >/dev/null)
-done
+(cd "$REPO" && npm pack --workspace packages/powerhouse --pack-destination "$TARBALLS" >/dev/null)
 
 step "Copying the template (tracked and new files, as 'Use this template' would)"
 mkdir -p "$SITE"
@@ -37,15 +34,15 @@ mkdir -p "$SITE"
 step "init-site"
 (cd "$SITE" && node scripts/init-site.mjs)
 
-# The packages are not on npm yet (or not in this version): install the packed
-# ones. Overrides also cover the dependencies between them.
-step "Pointing the site at the packed packages"
+# The package is not on npm yet (or not in this version): install the packed
+# one, also through overrides so no transitive request reaches the registry.
+step "Pointing the site at the packed package"
 (cd "$SITE" && node --input-type=module - "$TARBALLS" <<'NODE'
 import fs from "node:fs";
 const dir = process.argv[2];
 const tarballs = Object.fromEntries(
   fs.readdirSync(dir).map((f) => {
-    const name = `@janmarkuslanger/powerhouse-${f.replace(/^janmarkuslanger-powerhouse-/, "").replace(/-\d.*$/, "")}`;
+    const name = `@janmarkuslanger/${f.replace(/^janmarkuslanger-/, "").replace(/-\d.*$/, "")}`;
     return [name, `file:${dir}/${f}`];
   })
 );
@@ -65,12 +62,10 @@ NODE
 
 step "npm install"
 (cd "$SITE" && rm -f package-lock.json && npm install --no-audit --no-fund >/dev/null)
-for pkg in "${PACKAGES[@]}"; do
-  if [ -L "$SITE/node_modules/@janmarkuslanger/powerhouse-$pkg" ]; then
-    echo "powerhouse-$pkg is a symlink — the site uses local sources, not the package." >&2
-    exit 1
-  fi
-done
+if [ -L "$SITE/node_modules/@janmarkuslanger/powerhouse" ]; then
+  echo "powerhouse is a symlink — the site uses local sources, not the package." >&2
+  exit 1
+fi
 
 step "npm test"
 (cd "$SITE" && npm test)

@@ -7,11 +7,11 @@
  * case. Layout and markup are the site's; the routing is the platform's.
  */
 import BaseLayout from "../layouts/BaseLayout.astro";
-import BlockRenderer from "@janmarkuslanger/powerhouse-astro/BlockRenderer.astro";
-import { pagePaths } from "@janmarkuslanger/powerhouse-astro";
+import BlockRenderer from "@janmarkuslanger/powerhouse/astro/BlockRenderer.astro";
+import { pagePaths } from "@janmarkuslanger/powerhouse/astro";
 import { BLOCKS } from "../blocks";
 import { cms } from "../lib/cms/client";
-import { pageSchemas } from "@janmarkuslanger/powerhouse-core";
+import { pageSchemas } from "@janmarkuslanger/powerhouse/core";
 import type { InferGetStaticPropsType } from "astro";
 
 // A function declaration: with `export const` (Astro 4) the build ran but

@@ -137,14 +137,11 @@ Then work through:
 
 This repo is the platform. `apps/` is the reference site; a customer site is
 created from it (*New customer site* above) and depends on the published
-packages:
+platform package:
 
 ```jsonc
 // apps/web/package.json, apps/cms/package.json
-"@janmarkuslanger/powerhouse-core": "0.2.0",
-"@janmarkuslanger/powerhouse-cms-strapi": "0.2.0",
-"@janmarkuslanger/powerhouse-astro": "0.2.0",
-"@janmarkuslanger/powerhouse-strapi-kit": "0.2.0"
+"@janmarkuslanger/powerhouse": "0.2.0"
 ```
 
 ```yaml
@@ -153,11 +150,10 @@ uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-cms.yml@v0.
 uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-web.yml@v0.2.0
 ```
 
-All packages share one version, so updating a site means changing that one
-number everywhere (Renovate can open the PR). Releasing:
-`node scripts/set-version.mjs X.Y.Z`, commit, tag `vX.Y.Z`, push — the
-release workflow publishes to npm (first release: `NPM_TOKEN`, see the
-header of `release.yml`). Details and rules:
+Package and workflows share one version, so updating a site means changing
+that one number everywhere. Releasing: `node scripts/set-version.mjs X.Y.Z`,
+commit, tag `vX.Y.Z`, push — the release workflow publishes to npm (first
+release: see the header of `release.yml`). Details and rules:
 [`docs/architecture.md`](docs/architecture.md#platform-packages).
 
 ---
@@ -179,13 +175,15 @@ apps/
     src/components/       block + shared components (platform ones generated)
     schema-extensions/    site additions to platform schemas
     powerhouse-schemas.json   manifest of the generated schema files
-packages/                 platform packages, published as @janmarkuslanger/powerhouse-<dir>
-  core/                   domain types, block contract, llms.txt, JSON-LD
-  cms-strapi/             Strapi adapter, defineBlock
-  astro/                  BlockRenderer, consent store + banner/gate behaviour, analytics, routes
-  strapi-kit/             CMS side: platform schemas, config, permissions, one-time seed, publish → rebuild
+packages/
+  powerhouse/             the platform, published as @janmarkuslanger/powerhouse
+    src/core/             /core: domain types, block contract, llms.txt, JSON-LD
+    src/strapi/           /strapi: Strapi adapter, defineBlock
+    src/astro/            /astro: BlockRenderer, consent store + banner/gate behaviour, analytics, routes
+    src/strapi-kit/       /strapi-kit: platform schemas, config, permissions, one-time seed, publish → rebuild
+    schemas/              the platform's Strapi schemas
+    test/<role>/          unit tests per entry point (see Tests below)
   shared-content/         fixtures in Strapi response format (site-owned)
-  */test/                 unit tests per package (see Tests below)
 scripts/                  set-version · init-site · e2e-site (platform tooling, removed by init-site)
 docs/
   architecture.md         rules, layers, target package split, adding blocks
@@ -208,11 +206,11 @@ docs/
 
 | Where | What | Runs in |
 | --- | --- | --- |
-| `packages/<pkg>/test/` | package behaviour | Node; `// @vitest-environment jsdom` for DOM |
-| `packages/astro/test/components/` | `.astro` rendering (Astro container) | Astro's Vite config |
+| `packages/powerhouse/test/<role>/` | package behaviour, layer rules | Node; `// @vitest-environment jsdom` for DOM |
+| `packages/powerhouse/test/astro/components/` | `.astro` rendering (Astro container) | Astro's Vite config |
 | `apps/web/test/` | the site's blocks | the site's Astro config |
 
-- Package tests import package **sources** (aliases in `vitest.shared.ts`). `apps/web` tests use the packages' `dist/` like a customer site, so `npm test` builds the packages first.
+- Package tests import package **sources** (aliases in `vitest.shared.ts`). `apps/web` tests use the package's `dist/` like a customer site, so `npm test` builds the package first.
 - Mock only boundaries: `fetch`, the Strapi object (`strapi-kit/test/fake-strapi.ts`), `child_process`.
 - CI: `ci.yml` on every PR and push to `main`; `release.yml` before publishing.
 - `scripts/e2e-site.sh` (CI: `site-e2e.yml`): template copy → `init-site` → packed packages → tests → Strapi → site build. Run it locally after changing anything a site inherits.
