@@ -1,7 +1,7 @@
 # shared-content
 
 Fixtures in **Strapi response format**. Sole purpose: seeding an empty CMS
-exactly once (`apps/cms/src/seed.ts`).
+exactly once (seed steps in `apps/cms/src/index.ts`).
 
 After the first seed the CMS is the source of truth and these files drift —
 that is intended. They describe how a site *starts*, not how it looks today.

@@ -1,7 +1,12 @@
 name: Deploy CMS
 
-# Only for a self-hosted Strapi. On Strapi Cloud, delete this file and the
-# `cms` job in deploy.yml.
+# Only for a self-hosted Strapi. On Strapi Cloud, do not call it.
+#
+# REUSABLE ACROSS REPOSITORIES: sites call it as
+#   uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-cms.yml@<tag>
+# and pass every value explicitly — `secrets: inherit` only works within one
+# organization, so secrets are declared below. It checks out and builds the
+# CALLER's repository.
 #
 # Strapi is built on the RUNNER, not on the server: the admin panel build needs
 # ~1.5 GB of RAM and would push a small box into swapping while it serves
@@ -9,16 +14,102 @@ name: Deploy CMS
 
 on:
   workflow_call:
+    inputs:
+      app-dir:
+        description: Deploy directory on the server (the repo copy)
+        required: true
+        type: string
+      shared-dir:
+        description: Directory outside app-dir that survives deploys (uploads, install stamp)
+        required: true
+        type: string
+      service-name:
+        description: systemd unit running Strapi
+        required: true
+        type: string
+      cms-url:
+        description: Public CMS URL, for the health check
+        required: true
+        type: string
+      web-root:
+        description: Site web root on the same server, if a publish rebuilds the site there (shares its lock)
+        required: false
+        type: string
+        default: ""
+    outputs:
+      deployed:
+        description: "'true' when the CMS was deployed, 'false' when nothing it ships changed"
+        value: ${{ jobs.changes.outputs.cms }}
+    secrets:
+      SSH_PRIVATE_KEY: { required: true }
+      SSH_KNOWN_HOSTS: { required: true }
+      SSH_USER: { required: true }
+      SSH_HOST: { required: true }
 
+# Inputs reach scripts only through env. `${{ }}` inside `run:` is pasted into
+# the script text before the shell parses it — a quote in a value breaks or
+# rewrites the command.
 env:
-  APP_DIR: ${{ vars.APP_DIR }}
+  APP_DIR: ${{ inputs.app-dir }}
+  SHARED_DIR: ${{ inputs.shared-dir }}
+  SERVICE_NAME: ${{ inputs.service-name }}
+  CMS_URL: ${{ inputs.cms-url }}
+  WEB_ROOT: ${{ inputs.web-root }}
+  SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      cms: ${{ steps.filter.outputs.cms }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Did anything the server builds from change?
+        id: filter
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          # Anything but a regular push (manual run, first push, force push)
+          # deploys the CMS — cheaper than guessing wrong.
+          if [ "${{ github.event_name }}" != "push" ] \
+             || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            echo "cms=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # This job's rsync is the ONLY way the repo reaches the server — and
+          # a publish-triggered rebuild (REBUILD_STRATEGY=script) builds the
+          # site from that copy. Skip it for a frontend-only push and the next
+          # publish silently replaces the new release with one built from stale
+          # source. So this is a deny-list of files that never matter on the
+          # server, not an allow-list of CMS paths: a new root config file must
+          # not be able to reopen the gap.
+          if git diff --name-only "$BEFORE" "${{ github.sha }}" \
+             | grep -vE '^(\.github/|docs/|README\.md$|CLAUDE\.md$|LICENSE$)' \
+             | grep -q .; then
+            echo "cms=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cms=false" >> "$GITHUB_OUTPUT"
+          fi
+
   deploy:
+    needs: changes
+    if: needs.changes.outputs.cms == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
+      # `required: true` accepts "", and an unset repository variable is "".
+      # An empty app-dir would make the rsync --delete below target "/".
+      - name: Inputs must not be empty
+        run: |
+          failed=0
+          for pair in "app-dir=$APP_DIR" "shared-dir=$SHARED_DIR" \
+                      "service-name=$SERVICE_NAME" "cms-url=$CMS_URL"; do
+            [ -n "${pair#*=}" ] || { echo "::error::Input ${pair%%=*} is empty."; failed=1; }
+          done
+          exit "$failed"
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
@@ -53,22 +144,26 @@ jobs:
             --exclude "apps/cms/.env" \
             --exclude "apps/cms/.tmp" \
             --exclude "apps/cms/public/uploads" \
-            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.APP_DIR }}/"
+            ./ "$SSH_TARGET:$APP_DIR/"
 
       - name: Install dependencies on the server and restart the service
         run: |
-          ssh -i ~/.ssh/deploy_key "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -euo pipefail <<'REMOTE'
-            cd "${{ vars.APP_DIR }}"
+          # Values travel as quoted positional arguments; the heredoc is quoted,
+          # so nothing inside it is expanded on the runner.
+          ssh -i ~/.ssh/deploy_key "$SSH_TARGET" \
+            "bash -euo pipefail -s -- $(printf '%q ' "$APP_DIR" "$SHARED_DIR" "$SERVICE_NAME" "$WEB_ROOT")" <<'REMOTE'
+            APP_DIR="$1" SHARED_DIR="$2" SERVICE_NAME="$3" WEB_ROOT="$4"
+            cd "$APP_DIR"
 
             # Uploads live outside the deploy directory and are linked in, so
             # the media library survives rsync --delete.
-            mkdir -p "${{ vars.SHARED_DIR }}/uploads"
-            ln -sfn "${{ vars.SHARED_DIR }}/uploads" apps/cms/public/uploads
+            mkdir -p "$SHARED_DIR/uploads"
+            ln -sfn "$SHARED_DIR/uploads" apps/cms/public/uploads
 
             # If a publish can trigger a local site build, take the same lock
             # it takes — npm ci deletes node_modules, and a build reading from
             # it at the same moment leaves a tree that runs nothing.
-            if [ -n "${WEB_ROOT:-}" ]; then
+            if [ -n "$WEB_ROOT" ]; then
               mkdir -p "$WEB_ROOT"
               exec 9>"$WEB_ROOT/.rebuild.lock"
               flock -w 600 9 || { echo "::error::A site build has held the lock for over 10 minutes."; exit 1; }
@@ -80,7 +175,7 @@ jobs:
             # install when the lockfile moved or the tree is incomplete. The
             # stamp is written only AFTER success, so an interrupted run never
             # claims a healthy tree.
-            STAMP="${{ vars.SHARED_DIR }}/package-lock.installed"
+            STAMP="$SHARED_DIR/package-lock.installed"
             if [ -x node_modules/.bin/strapi ] && cmp -s package-lock.json "$STAMP"; then
               echo "Dependencies unchanged — install skipped."
             else
@@ -101,13 +196,13 @@ jobs:
               cp package-lock.json "$STAMP"
             fi
 
-            sudo /bin/systemctl restart "${{ vars.SERVICE_NAME }}"
+            sudo /bin/systemctl restart "$SERVICE_NAME"
           REMOTE
 
       - name: Health check
         run: |
           for i in $(seq 1 20); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.CMS_URL }}/api/global" || true)
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$CMS_URL/api/global" || true)
             [ "$code" = "200" ] && { echo "CMS is responding."; exit 0; }
             echo "Attempt $i: HTTP $code — waiting …"
             sleep 5

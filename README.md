@@ -13,6 +13,11 @@ apps/web  ──▶  CmsRepository  ──▶  adapter  ──▶  apps/cms (Str
    static      (domain model)       adapter        + dynamic zones
 ```
 
+**One platform, many sites.** The shared mechanics ship as versioned npm
+packages; a site keeps only its design, content model and configuration. A
+fix lands once and reaches every site through a version bump — see
+[Keeping sites up to date](#keeping-sites-up-to-date).
+
 ---
 
 ## Why this exists
@@ -94,15 +99,42 @@ grep -rl "@project/\|PROJECT\|example\.com" . --exclude-dir=node_modules
 Then work through:
 
 - [ ] Package names (`@project/*`) and the root `package.json` name
-- [ ] The consent storage key in `apps/web/src/lib/consent.ts`
 - [ ] `site` in `apps/web/astro.config.mjs` — canonicals and the sitemap need it
 - [ ] `apps/web/.env.production` — the public CMS URL, and a GA id if you want
       analytics. **This file is committed on purpose**; see [`CLAUDE.md`](CLAUDE.md) §3
 - [ ] The fixtures in `packages/shared-content/data/` — and your real content
       model, replacing the `rich-text` example block
 - [ ] Fill in the project header in [`CLAUDE.md`](CLAUDE.md) §0
-- [ ] Pick a deployment target and delete the shipping steps you don't use in
-      `.github/workflows/deploy-web.yml`
+- [ ] Pick a deployment target and set the repository variables `deploy.yml`
+      passes on (`CMS_TARGET`, `DEPLOY_TARGET`, `STRAPI_URL`, …)
+
+---
+
+## Keeping sites up to date
+
+This repo is the platform. `apps/` is the reference site; a customer site is
+its own repository with the same layout, depending on the published packages:
+
+```jsonc
+// apps/web/package.json, apps/cms/package.json
+"@janmarkuslanger/powerhouse-core": "0.2.0",
+"@janmarkuslanger/powerhouse-cms-strapi": "0.2.0",
+"@janmarkuslanger/powerhouse-astro": "0.2.0",
+"@janmarkuslanger/powerhouse-strapi-kit": "0.2.0"
+```
+
+```yaml
+# .github/workflows/deploy.yml — copy this repo's file, then point it at the tag
+uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-cms.yml@v0.2.0
+uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-web.yml@v0.2.0
+```
+
+All packages share one version, so updating a site means changing that one
+number everywhere (Renovate can open the PR). Releasing:
+`node scripts/set-version.mjs X.Y.Z`, commit, tag `vX.Y.Z`, push — the
+release workflow publishes to npm (first release: `NPM_TOKEN`, see the
+header of `release.yml`). Details and rules:
+[`docs/architecture.md`](docs/architecture.md#platform-packages).
 
 ---
 
@@ -112,23 +144,24 @@ Then work through:
 apps/
   web/                    Astro, static output
     .env.production       committed: public build config (CLAUDE.md §3)
-    src/lib/cms/          repository.ts · client.ts · adapters/
-    src/lib/consent*.ts   service-agnostic consent store + registry
-    src/lib/llms.ts       llms.txt, with a compiler-enforced block switch
-    src/lib/seo.ts        JSON-LD derived from blocks
-    src/components/       ConsentBanner, ConsentGate, blocks/
+    src/lib/cms/          client.ts (wiring) · types.ts (site domain types)
+    src/lib/consent-services.ts   which services need consent (the registry)
+    src/blocks/           one folder per block + Block union and registry (index.ts)
+    src/components/       ConsentBanner, ConsentGate (markup; behaviour from the astro package)
   cms/                    Strapi 5
     config/               server, database, middlewares, plugins
-    src/index.ts          bootstrap: public permissions, seed, rebuild trigger
-    src/seed.ts           runs once, into an empty database only
-    src/rebuild.ts        publish → rebuild (hook | script | none)
+    src/index.ts          bootstrap: public actions, seed steps, watched types
     src/api/              content types
     src/components/       block + shared components
-packages/
-  shared-types/           the domain model — root of the dependency graph
-  shared-content/         fixtures in Strapi response format
+packages/                 platform packages, published as @janmarkuslanger/powerhouse-<dir>
+  core/                   domain types, block contract, llms.txt, JSON-LD
+  cms-strapi/             Strapi adapter, defineBlock
+  astro/                  BlockRenderer, consent store + banner/gate behaviour, analytics
+  strapi-kit/             CMS side: permissions, one-time seed, publish → rebuild
+  shared-content/         fixtures in Strapi response format (site-owned)
+  */test/                 unit tests per package (see Tests below)
 docs/
-  architecture.md         layers, and the five steps to add a block
+  architecture.md         rules, layers, target package split, adding blocks
   deployment-targets.md   recipes per host
 ```
 
@@ -141,26 +174,41 @@ docs/
 | `npm run build:web` | Production build → `apps/web/dist` |
 | `npm run build:cms` | Strapi production build |
 | `npm run preview:web` | Preview the production build locally |
+| `npm test` | Type-check and run all unit tests |
+| `npm run test:watch` | Tests in watch mode |
+
+### Tests
+
+| Where | What | Runs in |
+| --- | --- | --- |
+| `packages/<pkg>/test/` | package behaviour | Node; `// @vitest-environment jsdom` for DOM |
+| `packages/astro/test/components/` | `.astro` rendering (Astro container) | Astro's Vite config |
+| `apps/web/test/` | the site's blocks | the site's Astro config |
+
+- Tests import package **sources** (aliases in `vitest.shared.ts`), no build needed.
+- Mock only boundaries: `fetch`, the Strapi object (`strapi-kit/test/fake-strapi.ts`), `child_process`.
+- CI: `ci.yml` on every PR and push to `main`; `release.yml` before publishing.
 
 ---
 
 ## Adding a content block
 
-Five steps; two are enforced by the compiler so they cannot be forgotten. Full
-detail in [`docs/architecture.md`](docs/architecture.md).
+A block is one self-contained definition. Full detail in
+[`docs/architecture.md`](docs/architecture.md).
 
-1. Add the type to the `Block` union in `packages/shared-types`.
-2. Add its id to `BLOCK_COMPONENTS` — *the build fails without this.*
-3. Create the Strapi component and register it in the dynamic zones.
-4. Add a `case` to the mapper and a populate entry to the adapter.
-5. Build the Astro component, register it in `BlockRenderer`, and add a `case`
-   to `llms.ts` — *the build fails without this one too.*
+1. Create `apps/web/src/blocks/<name>/` with its type, `defineBlock({ cms, component, llms })`
+   and the component.
+2. Add the type to the `Block` union in `apps/web/src/blocks/index.ts`.
+3. Register it in `BLOCKS` in the same file — *the build fails without this.*
+4. Create the Strapi component and register it in the dynamic zones.
+5. Test `map`, `llms` and the component in `apps/web/test/<name>.test.ts`
+   (template: `rich-text.test.ts`).
 
-Step 4's populate entry is the one with no safety net: forget it and the block
-renders with empty nested fields. If a new block looks half-filled, start there.
+Nested fields deeper than one level need an explicit `cms.populate`, or they
+arrive empty. If a new block looks half-filled, start there.
 
-The shipped `rich-text` block is a worked example of all five — read it once,
-then copy the shape for your own.
+`apps/web/src/blocks/rich-text` is a worked example — read it once, then copy
+the shape for your own.
 
 ---
 
@@ -195,7 +243,7 @@ file, is in [`CLAUDE.md`](CLAUDE.md) §3.
 | `ECONNREFUSED ::1:1337` | Node resolves `localhost` to IPv6, Strapi listens on IPv4 → use `http://127.0.0.1:1337` |
 | Images broken in production | `PUBLIC_STRAPI_URL` points at `127.0.0.1` — that address means *the visitor's* machine (CLAUDE.md §4) |
 | No consent banner | No service registered. Without a GA id, `consent-services.ts` registers nothing and the banner renders nothing — intended locally |
-| A block renders but is empty | Missing populate entry in `adapters/strapi.ts` |
+| A block renders but is empty | Nesting deeper than one level needs `cms.populate` in the block's definition |
 | `400 Invalid key blocks.…` | The frontend built before the CMS knew a component — the web job must wait for the CMS job |
 | An editor can't see a new field | Strapi field-level permissions are per role and are not auto-granted. Settings → Roles in the panel, not in code |
 | Deploy dies with `exit 137` | SIGKILL — out of memory on the server. Check `free -m` and `swapon --show` (CLAUDE.md §8) |

@@ -1,5 +1,6 @@
-import type { CmsRepository } from "./repository";
-import { StrapiCmsAdapter } from "./adapters/strapi";
+import { StrapiCmsAdapter } from "@janmarkuslanger/powerhouse-cms-strapi";
+import { BLOCKS, type Block } from "../../blocks";
+import type { CmsRepository } from "./types";
 
 /**
  * Single entry point for all content access:
@@ -8,7 +9,7 @@ import { StrapiCmsAdapter } from "./adapters/strapi";
  *   const page = await cms.getPage("about");
  *
  * Pages and components import this and never the adapter. Swapping the backend
- * means writing one new adapter and changing the line below — no page changes.
+ * means another adapter package and changing the lines below — no page changes.
  */
 const url = import.meta.env.STRAPI_URL;
 if (!url) {
@@ -20,19 +21,13 @@ if (!url) {
 }
 
 /**
- * Two different URLs on purpose (CLAUDE.md §4):
- *
- *   url               where THIS process fetches from at build time. May be
- *                     127.0.0.1 when building on the CMS host.
- *   PUBLIC_STRAPI_URL what ends up in the HTML — image sources and the form
- *                     endpoint, loaded later by the VISITOR's browser, where
- *                     127.0.0.1 would mean the visitor's own machine.
- *
- * Conflating them ships <img src="http://127.0.0.1:1337/uploads/…"> to
- * everyone. It looks fine locally and is broken for every real visitor.
+ * Two different URLs on purpose (CLAUDE.md §4): `url` is where the build
+ * fetches from, `mediaUrl` is what ends up in the HTML. Conflating them ships
+ * <img src="http://127.0.0.1:1337/uploads/…"> to every real visitor.
  */
-export const cms: CmsRepository = new StrapiCmsAdapter(
+export const cms: CmsRepository<Block> = new StrapiCmsAdapter<Block>({
   url,
-  import.meta.env.STRAPI_TOKEN,
-  import.meta.env.PUBLIC_STRAPI_URL || url
-);
+  token: import.meta.env.STRAPI_TOKEN,
+  mediaUrl: import.meta.env.PUBLIC_STRAPI_URL,
+  blocks: BLOCKS,
+});

@@ -1,0 +1,17 @@
+{
+  "name": "@janmarkuslanger/powerhouse-astro",
+  "version": "0.1.0",
+  "description": "Astro side of the platform: block rendering, consent store and UI behaviour, consent-gated analytics.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["astro-component"],
+  "exports": {
+    ".": "./src/index.ts",
+    "./BlockRenderer.astro": "./src/BlockRenderer.astro"
+  },
+  "files": ["src"],
+  "dependencies": { "@janmarkuslanger/powerhouse-core": "0.1.0" },
+  "peerDependencies": { "astro": "^4.16.0" },
+  "publishConfig": { "access": "public" },
+  "repository": { "type": "git", "url": "git+https://github.com/janmarkuslanger/astro-strapi-template.git", "directory": "packages/astro" }
+}

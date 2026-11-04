@@ -1,0 +1,18 @@
+// Type-checks the tests (vitest itself only strips types). Package sources
+// are checked by their own build; apps/web by `astro check`.
+{
+  "extends": "./tsconfig.packages.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "paths": {
+      "@janmarkuslanger/powerhouse-core": ["./packages/core/src/index.ts"],
+      "@janmarkuslanger/powerhouse-cms-strapi": ["./packages/cms-strapi/src/index.ts"]
+    }
+  },
+  "include": ["astro-modules.d.ts", "packages/*/test", "apps/web/test", "vitest.config.ts", "vitest.shared.ts"]
+}

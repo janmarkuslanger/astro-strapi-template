@@ -67,7 +67,7 @@ CI round trip, no token. Hook into Strapi's content events, debounce a few
 seconds, spawn a detached build script.
 
 That script builds from the repo copy in `app/`, which only the CMS deploy job
-updates. The path filter in `deploy.yml` therefore runs that job for every push
+updates. The path filter in `deploy-cms.yml` therefore runs that job for every push
 except docs-only ones, frontend changes included. Narrow it and a frontend-only
 push goes live, then gets reverted by the next publish, which rebuilds from the
 old source with no error.
@@ -109,7 +109,7 @@ over the committed file, and the two build paths would diverge.
 
 **Rebuild on publish:** create a deploy hook (a URL that triggers a build) and
 call it from the CMS on publish. This replaces the local rebuild script; the
-debounce logic in `apps/cms/src/rebuild.ts` still applies so ten publishes in
+debounce logic in `packages/strapi-kit/src/rebuild.ts` still applies so ten publishes in
 five minutes cost one build.
 
 **Monorepo note:** point the project root at the repo root, not `apps/web` —

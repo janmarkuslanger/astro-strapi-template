@@ -48,7 +48,7 @@ These are load-bearing. Breaking one does not fail loudly; it rots quietly.
 ### The frontend does not know the CMS exists
 
 Pages and components import **only** `cms` from `src/lib/cms/client.ts` and the
-domain types from `packages/shared-types`. They never import an adapter, never
+domain types from `src/lib/cms/types.ts`. They never import an adapter, never
 see a Strapi response shape, never handle `__component` or `populate`.
 
 ```ts
@@ -56,8 +56,9 @@ import { cms } from "../lib/cms/client";
 const page = await cms.getPage("about");
 ```
 
-Every CMS quirk ends in the adapter. Swapping the backend means writing one new
-adapter and changing one line in `client.ts` — no page or component changes.
+Every CMS quirk ends in the adapter. Swapping the backend means another
+adapter package, the `cms` part of each block, and `client.ts` — no page or
+component changes.
 This is worth defending even when it feels like ceremony; it is what makes the
 CMS replaceable and the frontend testable.
 
@@ -67,20 +68,23 @@ The template ships **one** example block (`rich-text`) and no content model —
 blogs, heroes, pricing tables and forms differ per project, so they are yours
 to add. What the template guarantees is that adding one cannot go half-done.
 
-Adding a block type means touching five places. Two of them are enforced by
-TypeScript, on purpose, because forgetting either causes a silent bug:
+A block is **one self-contained definition** in `apps/web/src/blocks/<name>/`:
+Strapi mapping, component, `llms.txt` contribution, optional JSON-LD. The
+adapter, renderer, `llms.txt` and JSON-LD iterate over the registry and never
+name a block type.
 
 ```ts
-// packages/shared-types — BLOCK_COMPONENTS must cover every Block["type"]
-export const BLOCK_COMPONENTS = {
-  richText: "blocks.rich-text",
+// apps/web/src/blocks/index.ts — typed so every Block["type"] needs an entry
+export const BLOCKS: StrapiBlockRegistry<Block> = {
+  richText,
   // …
-} as const satisfies Record<Block["type"], string>;
+};
 ```
 
-A missing entry breaks the build. Same for `src/lib/llms.ts`, which has a
-`never` branch so a new block must explicitly declare what it contributes to
-`llms.txt` — often `[]`, but the decision has to be made rather than forgotten.
+A missing entry breaks the build, and so does a definition without `llms` —
+often `[]`, but the decision has to be made rather than forgotten. Platform
+code must not regain per-block `switch`es; that is what made blocks touch five
+files.
 
 The full checklist is in [`docs/architecture.md`](docs/architecture.md).
 
@@ -112,7 +116,9 @@ changes CMS state.
 
 **Content** (pages, posts, text, images) comes from the fixtures in
 `packages/shared-content` **exactly once**, into an empty database.
-`seedContent` checks whether *any* content exists and does nothing if so.
+`seedContent` checks whether *any* content exists and does nothing if so. It
+writes in one transaction: a failed seed leaves the database empty, so the next
+boot retries instead of seeing a half-seeded site as "has content".
 
 There is deliberately **no** `SEED_CONTENT` flag or force switch. A restart, a
 deploy, or a server swap must never be able to overwrite an afternoon of
@@ -205,7 +211,7 @@ are loaded *by the visitor's browser*, where `127.0.0.1` means the visitor's
 own machine. The adapter therefore takes both:
 
 ```ts
-new StrapiCmsAdapter(fetchUrl, token, publicMediaUrl)
+new StrapiCmsAdapter({ url: fetchUrl, token, mediaUrl: publicMediaUrl, blocks })
 ```
 
 Getting this wrong ships `<img src="http://127.0.0.1:1337/uploads/…">` to
@@ -237,7 +243,8 @@ every submission as its own content type **and** email it. Both best-effort:
 the request should fail only if neither worked. A durable record in the panel
 survives a broken SMTP config, and requests stay reviewable without inbox
 access. Such a content type must have **no public REST route** and must stay
-out of `setPublicPermissions` — it holds other people's personal data.
+out of `PUBLIC_ACTIONS` (`apps/cms/src/index.ts`) — it holds other people's
+personal data.
 
 **One form type = one endpoint = one content type.** Do not add a "source" or
 "type" discriminator field so two forms can share an endpoint — that field only
@@ -257,8 +264,8 @@ a fresh install works without manual steps.
   with no extra code. **If you add view transitions, you must fire `page_view`
   manually** on every virtual navigation — otherwise analytics silently reports
   only the landing page.
-- **Pin `@astrojs/sitemap` to a version matching the Astro major.** v3.x for
-  Astro 4; newer needs Astro 5.
+- **Pin `@astrojs/sitemap` exactly.** On Astro 4 that is `3.6.0`; 3.6.1+
+  break the build. A caret range drifts into a broken version.
 - Directory-style URLs, so links have no `.html`.
 
 ---
@@ -268,14 +275,15 @@ a fresh install works without manual steps.
 The consent system is **service-agnostic**. Analytics is just the first
 consumer:
 
-- `lib/consent.ts` — generic store: one decision per service in `localStorage`,
-  a change event, `onConsentChange(id, cb)` for consumers.
-- `lib/consent-services.ts` — the **registry**. The banner renders itself from
-  this list; an empty list renders nothing at all.
-- `ConsentBanner.astro` — checkbox per service. "Accept all" and "Decline" carry
-  equal visual weight (no dark patterns).
-- `ConsentGate.astro` — two-click gate for embeds; slot content enters the DOM
-  only after consent.
+- `@janmarkuslanger/powerhouse-astro` — the behaviour: generic store (one decision per
+  service in `localStorage`, a change event, `onConsentChange(id, cb)`),
+  `initConsentBanner`, `initConsentGates`, consent-gated GA loading.
+- `lib/consent-services.ts` (site) — the **registry**. The banner renders itself
+  from this list; an empty list renders nothing at all.
+- `ConsentBanner.astro` (site) — markup and copy, checkbox per service. "Accept
+  all" and "Decline" carry equal visual weight (no dark patterns).
+- `ConsentGate.astro` (site) — two-click gate for embeds; slot content enters
+  the DOM only after consent.
 
 **Never paste a gtag.js snippet into the source.** It would load on page view,
 before consent, defeating the whole system. The measurement ID is configuration
@@ -333,6 +341,9 @@ learned:
   beats reasoning about `flock` semantics. Note that `flock` does **not** work
   over a macOS Docker bind mount — test on the container's own filesystem or
   you will get a false negative.
+- **`npm test` before every commit.** New behaviour in a package or block
+  gets a test next to the existing ones (README → Tests). Mock only I/O
+  boundaries.
 - **`bash -n` at minimum** before merging any deploy script change; extract and
   syntax-check remote scripts embedded in CI YAML too.
 - **Report honestly.** If something was tested standalone rather than

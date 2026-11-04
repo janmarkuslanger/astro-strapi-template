@@ -1,0 +1,29 @@
+---
+/**
+ * Renders domain blocks through the site's block registry. Names no block
+ * type.
+ *
+ * A block without a definition renders NOTHING rather than throwing: an
+ * unknown block must never take a page down. Together with the adapter (which
+ * already skips unknown CMS components), a block added in the CMS ahead of
+ * the frontend is harmless.
+ */
+import {
+  definitionFor,
+  type BaseBlock,
+  type BlockRegistry,
+} from "@janmarkuslanger/powerhouse-core";
+
+interface Props<B extends BaseBlock> {
+  blocks: B[];
+  registry: BlockRegistry<B>;
+}
+const { blocks, registry } = Astro.props;
+---
+
+{
+  blocks.map((block) => {
+    const Component = definitionFor(registry, block)?.component;
+    return Component ? <Component block={block} /> : null;
+  })
+}

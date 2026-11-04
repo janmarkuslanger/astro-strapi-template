@@ -1,0 +1,10 @@
+---
+import type { RichTextBlock } from "./index";
+interface Props { block: RichTextBlock }
+const { block } = Astro.props;
+---
+<section class="mx-auto max-w-3xl px-4 py-12">
+  {block.heading && <h2 class="mb-4 text-2xl font-bold">{block.heading}</h2>}
+  {/* html is pre-rendered Markdown from the mapper — the CMS is the trusted source. */}
+  <div class="prose max-w-none" set:html={block.html} />
+</section>

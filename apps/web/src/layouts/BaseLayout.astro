@@ -7,7 +7,7 @@ interface Props {
   title: string;
   description?: string;
   image?: string;
-  /** JSON-LD nodes from lib/seo.ts */
+  /** JSON-LD nodes from pageSchemas (powerhouse-core) */
   schemas?: Record<string, unknown>[];
 }
 
@@ -31,7 +31,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site).href;
     {image && <meta property="og:image" content={image} />}
     <meta name="twitter:card" content={image ? "summary_large_image" : "summary"} />
 
-    {/* Derived from the content blocks — see lib/seo.ts */}
+    {/* Derived from the content blocks — see pageSchemas in powerhouse-core */}
     {schemas.map((schema) => (
       <script type="application/ld+json" set:html={JSON.stringify(schema)} />
     ))}
