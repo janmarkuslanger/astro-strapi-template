@@ -23,7 +23,7 @@ on:
     outputs:
       artifact:
         description: Name of the artifact holding apps/web/dist
-        value: web-dist
+        value: ${{ jobs.build.outputs.artifact }}
     secrets:
       STRAPI_TOKEN: { required: false }
 
@@ -35,6 +35,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      artifact: web-dist
 
     steps:
       - name: Check out repository

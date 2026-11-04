@@ -69,12 +69,16 @@ jobs:
       - name: Upload as a new release and switch atomically
         run: |
           set -euo pipefail
+          # POSIX single quotes: the remote LOGIN shell parses this string before
+          # bash starts, and may be sh/dash — printf %q's $'…' would break there
+          # on a newline. Works for any content.
+          sq() { for a; do printf "'%s' " "$(printf '%s' "$a" | sed "s/'/'\\\\''/g")"; done; }
           # One directory per run: a content rebuild carries the same commit as
           # the deploy before it, so the sha alone would collide.
           RELEASE="$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA::7}"
           SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes"
 
-          $SSH "$SSH_TARGET" "mkdir -p $(printf %q "$WEB_ROOT/releases/$RELEASE")"
+          $SSH "$SSH_TARGET" "mkdir -p $(sq "$WEB_ROOT/releases/$RELEASE")"
 
           rsync -az --delete -e "$SSH" \
             "$DIST/" "$SSH_TARGET:$WEB_ROOT/releases/$RELEASE/"
@@ -82,7 +86,7 @@ jobs:
           # Values travel as quoted positional arguments; the heredoc is quoted,
           # so nothing inside it is expanded on the runner.
           $SSH "$SSH_TARGET" \
-            "bash -euo pipefail -s -- $(printf '%q ' "$WEB_ROOT" "$RELEASE")" <<'REMOTE'
+            "bash -euo pipefail -s -- $(sq "$WEB_ROOT" "$RELEASE")" <<'REMOTE'
             cd "$1"
             # Atomic: the web server follows the symlink per request, so no
             # visitor ever sees a half-copied release.

@@ -164,10 +164,15 @@ jobs:
 
       - name: Install dependencies on the server and restart Strapi
         run: |
+          set -euo pipefail
+          # POSIX single quotes: the remote LOGIN shell parses this string before
+          # bash starts, and may be sh/dash — printf %q's $'…' would break there
+          # on a newline. Works for any content.
+          sq() { for a; do printf "'%s' " "$(printf '%s' "$a" | sed "s/'/'\\\\''/g")"; done; }
           # Values travel as quoted positional arguments; the heredoc is quoted,
           # so nothing inside it is expanded on the runner.
           ssh -i ~/.ssh/deploy_key "$SSH_TARGET" \
-            "bash -euo pipefail -s -- $(printf '%q ' "$APP_DIR" "$SHARED_DIR" "$RESTART_COMMAND" "$WEB_ROOT")" <<'REMOTE'
+            "bash -euo pipefail -s -- $(sq "$APP_DIR" "$SHARED_DIR" "$RESTART_COMMAND" "$WEB_ROOT")" <<'REMOTE'
             APP_DIR="$1" SHARED_DIR="$2" RESTART_COMMAND="$3" WEB_ROOT="$4"
             cd "$APP_DIR"
 
@@ -213,8 +218,10 @@ jobs:
             fi
 
             # The site's own command: the one part that differs per hoster.
+            # fd 9 (the lock) is closed for it: a daemon it starts would
+            # otherwise inherit the lock and block every later deploy.
             echo "Restarting: $RESTART_COMMAND"
-            bash -euo pipefail -c "$RESTART_COMMAND"
+            bash -euo pipefail -c "$RESTART_COMMAND" 9>&-
           REMOTE
 
       - name: Health check
