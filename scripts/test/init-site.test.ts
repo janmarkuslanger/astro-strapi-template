@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   PLATFORM_PATHS,
   PLATFORM_REPO,
+  REUSABLE_WORKFLOWS,
   SITE_VITEST_CONFIG,
   initSite,
   platformVersion,
@@ -54,12 +55,24 @@ describe("sitePackageJson", () => {
 });
 
 describe("tagWorkflowRefs", () => {
-  it("points local reusable workflows at the tagged platform", () => {
-    const yaml = "    uses: ./.github/workflows/deploy-cms.yml\n    uses: ./.github/workflows/deploy-web.yml\n";
+  it("points every reusable platform workflow at the tagged platform", () => {
+    const yaml = REUSABLE_WORKFLOWS.map((name) => `    uses: ./.github/workflows/${name}\n`).join("");
     expect(tagWorkflowRefs(yaml, "0.2.0")).toBe(
-      `    uses: ${PLATFORM_REPO}/.github/workflows/deploy-cms.yml@v0.2.0\n` +
-        `    uses: ${PLATFORM_REPO}/.github/workflows/deploy-web.yml@v0.2.0\n`
+      REUSABLE_WORKFLOWS.map((name) => `    uses: ${PLATFORM_REPO}/.github/workflows/${name}@v0.2.0\n`).join("")
     );
+  });
+
+  it("knows every reusable workflow of the platform", () => {
+    const dir = path.join(REPO_ROOT, ".github/workflows");
+    const reusable = fs
+      .readdirSync(dir)
+      .filter((name) => /^\s+workflow_call:/m.test(fs.readFileSync(path.join(dir, name), "utf8")));
+    expect(reusable.sort()).toEqual([...REUSABLE_WORKFLOWS].sort());
+  });
+
+  it("leaves a site's own local workflows alone", () => {
+    const yaml = "    uses: ./.github/workflows/ship-github-pages.yml\n";
+    expect(tagWorkflowRefs(yaml, "0.2.0")).toBe(yaml);
   });
 
   it("drops the comment about local paths and leaves other lines alone", () => {
@@ -124,7 +137,8 @@ describe("initSite", () => {
     for (const workflow of [".github/workflows/deploy.yml", ".github/workflows/content-rebuild.yml"]) {
       const yaml = read(workflow);
       expect(yaml).not.toMatch(/uses: \.\//);
-      expect(yaml).toContain(`/deploy-web.yml@v${version}`);
+      expect(yaml).toContain(`/build-web.yml@v${version}`);
+      expect(yaml).toContain(`/ship-web-ssh.yml@v${version}`);
     }
   });
 

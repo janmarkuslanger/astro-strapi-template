@@ -6,8 +6,13 @@ name: Deploy
 #
 # This file is the CALLER, and the template for a site's own deploy.yml. The
 # logic lives in the reusable workflows; a site references them by tag:
-#   uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-cms.yml@vX.Y.Z
+#   uses: janmarkuslanger/astro-strapi-template/.github/workflows/build-web.yml@vX.Y.Z
 # (this repo uses ./ paths because it is the platform repo itself).
+#
+# Hosters differ per customer, so this file is where a site says where things
+# go: `cms` and `ship` are the hoster-specific jobs. The SSH recipes below
+# are one option; replace either job with another recipe from
+# docs/deployment-targets.md. `web` (build and verify) stays as it is.
 #
 # Values come from repository variables and secrets and are passed
 # explicitly — `secrets: inherit` does not cross organizations. None of them
@@ -27,15 +32,16 @@ concurrency:
 
 jobs:
   cms:
-    # Only when self-hosting the CMS. On Strapi Cloud, delete this job and
-    # drop the `needs: cms` below. Skips itself when nothing the server builds
-    # from changed.
-    if: vars.CMS_TARGET == 'self-hosted'
-    uses: ./.github/workflows/deploy-cms.yml
+    # Strapi on a server reachable over SSH. On a hoster that builds from the
+    # repo itself (Strapi Cloud, Render, …), delete this job and drop
+    # `needs: cms` below. Skips itself when nothing the server builds from
+    # changed.
+    if: vars.CMS_TARGET == 'ssh'
+    uses: ./.github/workflows/deploy-cms-ssh.yml
     with:
       app-dir: ${{ vars.APP_DIR }}
       shared-dir: ${{ vars.SHARED_DIR }}
-      service-name: ${{ vars.SERVICE_NAME }}
+      restart-command: ${{ vars.CMS_RESTART_COMMAND }}
       cms-url: ${{ vars.CMS_URL }}
       web-root: ${{ vars.WEB_ROOT }}
     secrets:
@@ -50,14 +56,24 @@ jobs:
     # CMS is exactly what this avoids.
     needs: cms
     if: always() && needs.cms.result != 'failure' && needs.cms.result != 'cancelled'
-    uses: ./.github/workflows/deploy-web.yml
+    uses: ./.github/workflows/build-web.yml
     with:
       strapi-url: ${{ vars.STRAPI_URL }}
-      deploy-target: ${{ vars.DEPLOY_TARGET }}
+    secrets:
+      STRAPI_TOKEN: ${{ secrets.STRAPI_TOKEN }}
+
+  ship:
+    # Puts the built site where it is served. Over SSH here; for another
+    # hoster, replace this job with its recipe (docs/deployment-targets.md).
+    # Hosters that build by themselves (Vercel, Netlify, Cloudflare Pages)
+    # need no ship job: `web` is then the check.
+    needs: web
+    if: vars.WEB_TARGET == 'ssh'
+    uses: ./.github/workflows/ship-web-ssh.yml
+    with:
       web-root: ${{ vars.WEB_ROOT }}
       site-url: ${{ vars.SITE_URL }}
     secrets:
-      STRAPI_TOKEN: ${{ secrets.STRAPI_TOKEN }}
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
       SSH_USER: ${{ secrets.SSH_USER }}

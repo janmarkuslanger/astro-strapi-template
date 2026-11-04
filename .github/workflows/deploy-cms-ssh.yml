@@ -1,9 +1,15 @@
-name: Deploy CMS
+name: Deploy CMS over SSH
 
-# Only for a self-hosted Strapi. On Strapi Cloud, do not call it.
+# For a Strapi on any server reachable over SSH. The parts every such server
+# shares are here: change filter, build on the runner, upload, install only
+# when the lockfile moved, the lock shared with a local site rebuild, health
+# check. How Strapi is (re)started is the site's: `restart-command` runs on the
+# server, e.g. `pm2 reload cms`, `sudo systemctl restart cms`,
+# `docker compose restart cms`. A hoster without SSH (Strapi Cloud, Render, …)
+# builds from the repo itself and does not call this.
 #
 # REUSABLE ACROSS REPOSITORIES: sites call it as
-#   uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-cms.yml@<tag>
+#   uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-cms-ssh.yml@<tag>
 # and pass every value explicitly — `secrets: inherit` only works within one
 # organization, so secrets are declared below. It checks out and builds the
 # CALLER's repository.
@@ -23,8 +29,8 @@ on:
         description: Directory outside app-dir that survives deploys (uploads, install stamp)
         required: true
         type: string
-      service-name:
-        description: systemd unit running Strapi
+      restart-command:
+        description: Shell command run on the server, in app-dir, to (re)start Strapi after the install
         required: true
         type: string
       cms-url:
@@ -52,7 +58,7 @@ on:
 env:
   APP_DIR: ${{ inputs.app-dir }}
   SHARED_DIR: ${{ inputs.shared-dir }}
-  SERVICE_NAME: ${{ inputs.service-name }}
+  RESTART_COMMAND: ${{ inputs.restart-command }}
   CMS_URL: ${{ inputs.cms-url }}
   WEB_ROOT: ${{ inputs.web-root }}
   SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
@@ -105,7 +111,7 @@ jobs:
         run: |
           failed=0
           for pair in "app-dir=$APP_DIR" "shared-dir=$SHARED_DIR" \
-                      "service-name=$SERVICE_NAME" "cms-url=$CMS_URL"; do
+                      "restart-command=$RESTART_COMMAND" "cms-url=$CMS_URL"; do
             [ -n "${pair#*=}" ] || { echo "::error::Input ${pair%%=*} is empty."; failed=1; }
           done
           exit "$failed"
@@ -156,13 +162,13 @@ jobs:
             --exclude "apps/cms/public/uploads" \
             ./ "$SSH_TARGET:$APP_DIR/"
 
-      - name: Install dependencies on the server and restart the service
+      - name: Install dependencies on the server and restart Strapi
         run: |
           # Values travel as quoted positional arguments; the heredoc is quoted,
           # so nothing inside it is expanded on the runner.
           ssh -i ~/.ssh/deploy_key "$SSH_TARGET" \
-            "bash -euo pipefail -s -- $(printf '%q ' "$APP_DIR" "$SHARED_DIR" "$SERVICE_NAME" "$WEB_ROOT")" <<'REMOTE'
-            APP_DIR="$1" SHARED_DIR="$2" SERVICE_NAME="$3" WEB_ROOT="$4"
+            "bash -euo pipefail -s -- $(printf '%q ' "$APP_DIR" "$SHARED_DIR" "$RESTART_COMMAND" "$WEB_ROOT")" <<'REMOTE'
+            APP_DIR="$1" SHARED_DIR="$2" RESTART_COMMAND="$3" WEB_ROOT="$4"
             cd "$APP_DIR"
 
             # Uploads live outside the deploy directory and are linked in, so
@@ -206,7 +212,9 @@ jobs:
               cp package-lock.json "$STAMP"
             fi
 
-            sudo /bin/systemctl restart "$SERVICE_NAME"
+            # The site's own command: the one part that differs per hoster.
+            echo "Restarting: $RESTART_COMMAND"
+            bash -euo pipefail -c "$RESTART_COMMAND"
           REMOTE
 
       - name: Health check

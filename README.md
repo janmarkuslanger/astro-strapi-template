@@ -103,13 +103,13 @@ from that moment the CMS owns the content and the fixtures are never read again.
 
 | `init-site` | |
 | --- | --- |
-| removes | `packages/{core,cms-strapi,astro,strapi-kit}`, `release.yml`, `site-e2e.yml`, `deploy-cms.yml`, `deploy-web.yml`, platform scripts and test config |
-| rewrites | root scripts (no `build:packages`), `deploy.yml` + `content-rebuild.yml` → `…/deploy-*.yml@v<version>`, test config → site tests only |
+| removes | `packages/powerhouse`, `release.yml`, `site-e2e.yml`, the reusable workflows (`build-web.yml`, `ship-web-ssh.yml`, `deploy-cms-ssh.yml`), platform scripts and test config |
+| rewrites | root scripts (no `build:packages`), `deploy.yml` + `content-rebuild.yml` → `…/<reusable workflow>@v<version>`, test config → site tests only |
 | keeps | `apps/`, `packages/shared-content`, `ci.yml`, docs |
 | version | the one `apps/web/package.json` pins |
 
-Until then the deploy workflows refuse to run: npm would otherwise build with
-the template's local package sources instead of the published packages.
+Until then the reusable workflows refuse to run: npm would otherwise build
+with the template's local package source instead of the published package.
 `init-site` refuses to run in this repository.
 
 ### Making it yours
@@ -128,8 +128,11 @@ Then work through:
 - [ ] The fixtures in `packages/shared-content/data/` — and your real content
       model, replacing the `rich-text` example block
 - [ ] Fill in the project header in [`CLAUDE.md`](CLAUDE.md) §0
-- [ ] Pick a deployment target and set the repository variables `deploy.yml`
-      passes on (`CMS_TARGET`, `DEPLOY_TARGET`, `STRAPI_URL`, …)
+- [ ] Pick the customer's hosters: keep or replace the `cms` and `ship` jobs
+      in `deploy.yml` and `content-rebuild.yml`
+      ([`docs/deployment-targets.md`](docs/deployment-targets.md)), then set the
+      repository variables they pass on (`STRAPI_URL`, `CMS_TARGET`,
+      `CMS_RESTART_COMMAND`, `WEB_TARGET`, …)
 
 ---
 
@@ -146,8 +149,10 @@ platform package:
 
 ```yaml
 # .github/workflows/deploy.yml — copy this repo's file, then point it at the tag
-uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-cms.yml@v0.2.0
-uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-web.yml@v0.2.0
+uses: janmarkuslanger/astro-strapi-template/.github/workflows/build-web.yml@v0.2.0
+# plus the hoster recipes the site uses, e.g.
+uses: janmarkuslanger/astro-strapi-template/.github/workflows/deploy-cms-ssh.yml@v0.2.0
+uses: janmarkuslanger/astro-strapi-template/.github/workflows/ship-web-ssh.yml@v0.2.0
 ```
 
 Package and workflows share one version, so updating a site means changing
