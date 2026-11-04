@@ -123,7 +123,7 @@ jobs:
       # local copies instead of the published packages.
       - name: Site must be initialized
         run: |
-          if [ "$GITHUB_REPOSITORY" != "janmarkuslanger/astro-strapi-template" ] && [ -d packages/powerhouse ]; then
+          if [ "$GITHUB_REPOSITORY" != "janmarkuslanger/astro-strapi-template" ] && [ -d packages/astro-strapi-platform ]; then
             echo "::error::Platform package sources found. Run 'npm run init-site' once, then npm install and commit."
             exit 1
           fi

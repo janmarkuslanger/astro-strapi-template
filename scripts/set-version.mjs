@@ -10,7 +10,7 @@ if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version ?? "")) {
   process.exit(1);
 }
 
-const PLATFORM = ["packages/powerhouse"];
+const PLATFORM = ["packages/astro-strapi-platform"];
 const names = new Set(
   PLATFORM.map((dir) => JSON.parse(fs.readFileSync(`${dir}/package.json`, "utf8")).name)
 );

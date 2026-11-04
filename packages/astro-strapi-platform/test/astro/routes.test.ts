@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { BlockRegistry, CmsRepository, Page, SiteGlobal } from "@janmarkuslanger/powerhouse/core";
+import type { BlockRegistry, CmsRepository, Page, SiteGlobal } from "@janmarkuslanger/astro-strapi-platform/core";
 import { llmsTxtRoute, pagePaths, robotsTxt, robotsTxtRoute } from "../../src/astro/routes";
 
 type TextBlock = { type: "text"; body: string };

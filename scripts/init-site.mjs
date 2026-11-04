@@ -12,7 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PLATFORM_REPO = "janmarkuslanger/astro-strapi-template";
-export const PLATFORM_PACKAGE = "@janmarkuslanger/powerhouse";
+export const PLATFORM_PACKAGE = "@janmarkuslanger/astro-strapi-platform";
 
 /**
  * Reusable workflows. A site calls them from the platform by tag and never
@@ -22,7 +22,7 @@ export const REUSABLE_WORKFLOWS = ["build-web.yml", "ship-web-ssh.yml", "deploy-
 
 /** Platform-only paths. Everything else belongs to the site. */
 export const PLATFORM_PATHS = [
-  "packages/powerhouse",
+  "packages/astro-strapi-platform",
   ".github/workflows/release.yml",
   ".github/workflows/site-e2e.yml",
   ...REUSABLE_WORKFLOWS.map((name) => `.github/workflows/${name}`),
@@ -120,7 +120,7 @@ export function siteTsconfigTest(text) {
  */
 export function initSite(root) {
   const file = (/** @type {string} */ rel) => path.join(root, rel);
-  if (!fs.existsSync(file("packages/powerhouse"))) {
+  if (!fs.existsSync(file("packages/astro-strapi-platform"))) {
     throw new Error("No platform package sources found — this site is already initialized.");
   }
 

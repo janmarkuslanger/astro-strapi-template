@@ -16,7 +16,7 @@ const ALLOWED: Record<string, (specifier: string) => boolean> = {
   strapi: (s) => s.startsWith("./") || s.startsWith("../core/") || s === "marked",
   // Core through the public entry point: astro ships as source, and this keeps
   // one copy of core in a site.
-  astro: (s) => s.startsWith("./") || s === "@janmarkuslanger/powerhouse/core" || s === "astro",
+  astro: (s) => s.startsWith("./") || s === "@janmarkuslanger/astro-strapi-platform/core" || s === "astro",
   // CommonJS on the Strapi server: no ESM layer may be imported from here.
   "strapi-kit": (s) => s.startsWith("./") || s.startsWith("node:") || s === "@strapi/strapi",
 };

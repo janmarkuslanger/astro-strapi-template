@@ -1,3 +1,3 @@
-import { serverConfig } from "@janmarkuslanger/powerhouse/strapi-kit";
+import { serverConfig } from "@janmarkuslanger/astro-strapi-platform/strapi-kit";
 
 export default serverConfig;

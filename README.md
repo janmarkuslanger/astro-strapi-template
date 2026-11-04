@@ -103,7 +103,7 @@ from that moment the CMS owns the content and the fixtures are never read again.
 
 | `init-site` | |
 | --- | --- |
-| removes | `packages/powerhouse`, `release.yml`, `site-e2e.yml`, the reusable workflows (`build-web.yml`, `ship-web-ssh.yml`, `deploy-cms-ssh.yml`), platform scripts and test config |
+| removes | `packages/astro-strapi-platform`, `release.yml`, `site-e2e.yml`, the reusable workflows (`build-web.yml`, `ship-web-ssh.yml`, `deploy-cms-ssh.yml`), platform scripts and test config |
 | rewrites | root scripts (no `build:packages`), `deploy.yml` + `content-rebuild.yml` → `…/<reusable workflow>@v<version>`, test config → site tests only |
 | keeps | `apps/`, `packages/shared-content`, `ci.yml`, docs |
 | version | the one `apps/web/package.json` pins |
@@ -144,7 +144,7 @@ platform package:
 
 ```jsonc
 // apps/web/package.json, apps/cms/package.json
-"@janmarkuslanger/powerhouse": "0.2.0"
+"@janmarkuslanger/astro-strapi-platform": "0.2.0"
 ```
 
 ```yaml
@@ -179,9 +179,9 @@ apps/
     src/api/              content types (platform ones generated, see below)
     src/components/       block + shared components (platform ones generated)
     schema-extensions/    site additions to platform schemas
-    powerhouse-schemas.json   manifest of the generated schema files
+    platform-schemas.json   manifest of the generated schema files
 packages/
-  powerhouse/             the platform, published as @janmarkuslanger/powerhouse
+  astro-strapi-platform/  the platform, published as @janmarkuslanger/astro-strapi-platform
     src/core/             /core: domain types, block contract, llms.txt, JSON-LD
     src/strapi/           /strapi: Strapi adapter, defineBlock
     src/astro/            /astro: BlockRenderer, consent store + banner/gate behaviour, analytics, routes
@@ -211,8 +211,8 @@ docs/
 
 | Where | What | Runs in |
 | --- | --- | --- |
-| `packages/powerhouse/test/<role>/` | package behaviour, layer rules | Node; `// @vitest-environment jsdom` for DOM |
-| `packages/powerhouse/test/astro/components/` | `.astro` rendering (Astro container) | Astro's Vite config |
+| `packages/astro-strapi-platform/test/<role>/` | package behaviour, layer rules | Node; `// @vitest-environment jsdom` for DOM |
+| `packages/astro-strapi-platform/test/astro/components/` | `.astro` rendering (Astro container) | Astro's Vite config |
 | `apps/web/test/` | the site's blocks | the site's Astro config |
 
 - Package tests import package **sources** (aliases in `vitest.shared.ts`). `apps/web` tests use the package's `dist/` like a customer site, so `npm test` builds the package first.

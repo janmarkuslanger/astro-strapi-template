@@ -16,10 +16,10 @@ export default defineConfig({
         test: {
           name: "platform",
           include: ["packages/*/test/**/*.test.ts", "scripts/test/**/*.test.ts"],
-          exclude: ["packages/powerhouse/test/astro/components/**"],
+          exclude: ["packages/astro-strapi-platform/test/astro/components/**"],
         },
       },
-      "packages/powerhouse/vitest.astro.config.ts",
+      "packages/astro-strapi-platform/vitest.astro.config.ts",
       "apps/web/vitest.config.ts",
     ],
   },

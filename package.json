@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build:packages": "npm run build -w packages/powerhouse",
+    "build:packages": "npm run build -w packages/astro-strapi-platform",
     "dev:web": "npm run build:packages && npm run dev --workspace apps/web",
     "dev:cms": "npm run build:packages && npm run develop --workspace apps/cms",
     "build:web": "npm run build:packages && npm run build --workspace apps/web",
