@@ -1,21 +1,24 @@
 name: Release
 
-# Publishes every platform package to npm when a version tag is pushed.
+# Publishes the platform package to npm when a version tag is pushed.
 #
 #   node scripts/set-version.mjs 0.2.0 && npm install
 #   git commit -am "Release 0.2.0" && git tag v0.2.0 && git push --follow-tags
 #
-# - Lockstep: all packages share one version, and sites reference the reusable
-#   workflows by the same tag.
+# - One version: sites reference the package and the reusable workflows by
+#   the same tag.
 # - Prerelease (`v0.2.0-rc.1`) → dist-tag `next`; stable → `latest`.
 # - Rerunnable: versions already on npm are skipped, so a failed run can be
 #   retried on the same tag.
 #
-# Auth (npm has no classic/automation tokens since 2025-12-09):
-# - First release: secret NPM_TOKEN = granular token, read/write for the
-#   @janmarkuslanger scope, "bypass 2FA" enabled.
-# - Afterwards: add this workflow as trusted publisher for each package on
-#   npmjs.com, then delete NPM_TOKEN. npm uses OIDC (id-token below).
+# Auth: trusted publishing (OIDC, id-token below), no stored token.
+# - It can only be configured for a package that exists on npm, so the very
+#   first version is published once by hand, with 2FA: on a clean main,
+#   `npm ci && npm test && npm publish --workspace packages/powerhouse --access public`.
+# - Then on npmjs.com: package Settings → Trusted Publisher → GitHub Actions,
+#   this repository, workflow release.yml; and Publishing access → require
+#   2FA and disallow tokens. Push the version tag afterwards; this workflow
+#   skips the version already on npm.
 
 on:
   push:
@@ -26,8 +29,7 @@ permissions:
   id-token: write # trusted publishing + provenance
 
 env:
-  # Publish order: dependencies before dependents.
-  PACKAGES: packages/core packages/cms-strapi packages/astro packages/strapi-kit
+  PACKAGES: packages/powerhouse
 
 jobs:
   publish:
@@ -63,9 +65,8 @@ jobs:
 
       - run: npm run build:packages
 
+      # npm authenticates through OIDC (trusted publishing); no token here.
       - name: Publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"

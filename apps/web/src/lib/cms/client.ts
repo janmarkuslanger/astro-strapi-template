@@ -1,4 +1,4 @@
-import { StrapiCmsAdapter } from "@janmarkuslanger/powerhouse-cms-strapi";
+import { StrapiCmsAdapter } from "@janmarkuslanger/powerhouse/strapi";
 import { BLOCKS, type Block } from "../../blocks";
 import type { CmsRepository, GlobalExtension, PageExtension } from "./types";
 

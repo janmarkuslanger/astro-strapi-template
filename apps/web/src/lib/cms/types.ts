@@ -1,5 +1,5 @@
 /**
- * The domain model as this site sees it: platform types from powerhouse-core,
+ * The domain model as this site sees it: platform types from @janmarkuslanger/powerhouse/core,
  * bound to the site's own block union and its own page/global fields. Pages
  * and components import from here, never from an adapter.
  */
@@ -7,7 +7,7 @@ import type {
   CmsRepository as CoreRepository,
   Page as CorePage,
   SiteGlobal as CoreSiteGlobal,
-} from "@janmarkuslanger/powerhouse-core";
+} from "@janmarkuslanger/powerhouse/core";
 import type { Block } from "../../blocks";
 
 /**
@@ -18,7 +18,7 @@ import type { Block } from "../../blocks";
 export type PageExtension = {};
 export type GlobalExtension = {};
 
-export type { ImageAsset, Link, Seo } from "@janmarkuslanger/powerhouse-core";
+export type { ImageAsset, Link, Seo } from "@janmarkuslanger/powerhouse/core";
 export type { Block } from "../../blocks";
 export type Page = CorePage<Block, PageExtension>;
 export type SiteGlobal = CoreSiteGlobal<GlobalExtension>;

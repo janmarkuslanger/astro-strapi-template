@@ -12,13 +12,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PLATFORM_REPO = "janmarkuslanger/astro-strapi-template";
+export const PLATFORM_PACKAGE = "@janmarkuslanger/powerhouse";
 
 /** Platform-only paths. Everything else belongs to the site. */
 export const PLATFORM_PATHS = [
-  "packages/core",
-  "packages/cms-strapi",
-  "packages/astro",
-  "packages/strapi-kit",
+  "packages/powerhouse",
   ".github/workflows/release.yml",
   ".github/workflows/site-e2e.yml",
   ".github/workflows/deploy-cms.yml",
@@ -55,10 +53,10 @@ const BUILD_PACKAGES = "npm run build:packages && ";
  * @returns {string}
  */
 export function platformVersion(webPackageJson) {
-  const version = webPackageJson.dependencies?.["@janmarkuslanger/powerhouse-core"];
+  const version = webPackageJson.dependencies?.[PLATFORM_PACKAGE];
   if (!version || !/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version)) {
     throw new Error(
-      `apps/web/package.json must pin @janmarkuslanger/powerhouse-core to an exact version, got "${version}".`
+      `apps/web/package.json must pin ${PLATFORM_PACKAGE} to an exact version, got "${version}".`
     );
   }
   return version;
@@ -118,7 +116,7 @@ export function siteTsconfigTest(text) {
  */
 export function initSite(root) {
   const file = (/** @type {string} */ rel) => path.join(root, rel);
-  if (!fs.existsSync(file("packages/core"))) {
+  if (!fs.existsSync(file("packages/powerhouse"))) {
     throw new Error("No platform package sources found — this site is already initialized.");
   }
 

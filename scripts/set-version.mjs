@@ -1,6 +1,5 @@
-// Sets one version on every platform package and on every internal
-// dependency that points at one — the packages are released in lockstep, so
-// a site upgrades by changing a single number.
+// Sets the platform package's version and the apps' dependency on it, so a
+// site upgrades by changing a single number.
 //
 //   node scripts/set-version.mjs 0.2.0
 import fs from "node:fs";
@@ -11,7 +10,7 @@ if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version ?? "")) {
   process.exit(1);
 }
 
-const PLATFORM = ["packages/core", "packages/cms-strapi", "packages/astro", "packages/strapi-kit"];
+const PLATFORM = ["packages/powerhouse"];
 const names = new Set(
   PLATFORM.map((dir) => JSON.parse(fs.readFileSync(`${dir}/package.json`, "utf8")).name)
 );

@@ -1,0 +1,7 @@
+// CommonJS: src/strapi-kit/package.json says so, and the build copies it next
+// to the output so Node loads dist/strapi-kit/*.js as CommonJS too.
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": { "module": "Node16", "moduleResolution": "Node16", "outDir": "dist", "rootDir": "src" },
+  "include": ["src/strapi-kit"]
+}
