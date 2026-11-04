@@ -16,6 +16,7 @@
   "typesVersions": { "*": { "strapi-kit": ["dist/strapi-kit/index.d.ts"] } },
   "files": ["dist", "src/astro", "schemas"],
   "scripts": {
+    "prepack": "npm run build",
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.strapi-kit.json && node -e \"require('node:fs').copyFileSync('src/strapi-kit/package.json', 'dist/strapi-kit/package.json')\""
   },
   "dependencies": { "marked": "^14.1.3" },
