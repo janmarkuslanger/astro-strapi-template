@@ -15,7 +15,7 @@ const write = (rel: string, content: string) => {
 const PAGE = "src/api/page/content-types/page/schema.json";
 
 beforeEach(() => {
-  app = fs.mkdtempSync(path.join(os.tmpdir(), "powerhouse-schemas-"));
+  app = fs.mkdtempSync(path.join(os.tmpdir(), "platform-schemas-"));
   write("src/components/blocks/hero.json", JSON.stringify({ collectionName: "components_blocks_heroes", attributes: {} }));
 });
 afterEach(() => fs.rmSync(app, { recursive: true, force: true }));
@@ -50,10 +50,10 @@ describe("syncSchemas", () => {
 
   it("removes a schema the platform no longer ships, with its empty directories", () => {
     syncSchemas(app);
-    const manifest = JSON.parse(read("powerhouse-schemas.json"));
+    const manifest = JSON.parse(read("platform-schemas.json"));
     write("src/api/old/routes/old.ts", "old\n");
     manifest.files["api/old/routes/old.ts"] = hash("old\n");
-    write("powerhouse-schemas.json", JSON.stringify(manifest));
+    write("platform-schemas.json", JSON.stringify(manifest));
 
     expect(syncSchemas(app).removed).toBe(1);
     expect(fs.existsSync(file("src/api/old"))).toBe(false);

@@ -43,13 +43,13 @@ Everything else (posts, heroes, forms, …) is per project.
 
 > One change in the platform reaches every site through a version bump, not a
 > re-implementation per site. The platform is **one** npm package,
-> `@janmarkuslanger/powerhouse`, with one entry point per role. This repo is
+> `@janmarkuslanger/astro-strapi-platform`, with one entry point per role. This repo is
 > the platform repo; `apps/` is the reference site and the starting point for
 > new ones.
 
 ### Roles
 
-| Role | Entry point (`@janmarkuslanger/powerhouse/…`) | Responsibility | Knows |
+| Role | Entry point (`@janmarkuslanger/astro-strapi-platform/…`) | Responsibility | Knows |
 | --- | --- | --- | --- |
 | core | `/core` | Domain types, block contract, repository interface, `llms.txt`, JSON-LD, page paths | nothing |
 | cms-adapter | `/strapi` | Fetching, retry, reference resolution, media URLs, `defineBlock` | core |
@@ -93,7 +93,7 @@ CMS-agnostic.
 ### Distribution
 
 - **One package, one version**: `scripts/set-version.mjs`, tag `vX.Y.Z`, `release.yml` publishes to npm.
-- The layer rules above are enforced by `packages/powerhouse/test/layers.test.ts`, since no package boundary does it any more. Sources live in `packages/powerhouse/src/<role>/`.
+- The layer rules above are enforced by `packages/astro-strapi-platform/test/layers.test.ts`, since no package boundary does it any more. Sources live in `packages/astro-strapi-platform/src/<role>/`.
 - Prerelease tag (`vX.Y.Z-rc.1`) → npm dist-tag `next`; stable → `latest`.
 - A failed release is rerun on the same tag; versions already on npm are skipped.
 - Auth: trusted publishing (OIDC), no stored token. It can only be set up for a package that exists, so the very first version is published once by hand; steps in the header of `release.yml`.
@@ -109,7 +109,7 @@ and are **generated** into `apps/cms/src/` before every `strapi develop` and
 `strapi build` (`npm run schemas -w apps/cms` runs it by hand).
 
 - Generated files are committed, so a platform update shows its schema change as a diff.
-- **Never edit them.** `apps/cms/powerhouse-schemas.json` records what was generated; a hand edit (also one made in the Content-Type Builder) stops the next run with the file name instead of being overwritten. Platform types are hidden in the Content-Type Builder for that reason.
+- **Never edit them.** `apps/cms/platform-schemas.json` records what was generated; a hand edit (also one made in the Content-Type Builder) stops the next run with the file name instead of being overwritten. Platform types are hidden in the Content-Type Builder for that reason.
 - **Extend** in `apps/cms/schema-extensions/<name>.json`, `<name>` being the content type (`page`) or the component uid (`shared.seo`):
 
   ```json

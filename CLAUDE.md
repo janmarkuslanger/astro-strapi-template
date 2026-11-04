@@ -111,7 +111,7 @@ construction rather than by a runtime guard.
 
 **Structure** (content types, block components, schemas) lives in code under
 `apps/cms/src/api/**` and `apps/cms/src/components/**`. The platform's types
-are generated there from `@janmarkuslanger/powerhouse` and must not be edited; a site
+are generated there from `@janmarkuslanger/astro-strapi-platform` and must not be edited; a site
 extends them in `apps/cms/schema-extensions/` (docs/architecture.md →
 *Platform schemas*). Strapi applies schema
 changes on boot, like a migration. This is the **only** path by which code
@@ -278,7 +278,7 @@ a fresh install works without manual steps.
 The consent system is **service-agnostic**. Analytics is just the first
 consumer:
 
-- `@janmarkuslanger/powerhouse/astro` — the behaviour: generic store (one decision per
+- `@janmarkuslanger/astro-strapi-platform/astro` — the behaviour: generic store (one decision per
   service in `localStorage`, a change event, `onConsentChange(id, cb)`),
   `initConsentBanner`, `initConsentGates`, consent-gated GA loading.
 - `lib/consent-services.ts` (site) — the **registry**. The banner renders itself

@@ -1,5 +1,5 @@
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
-import type { BlockRegistry } from "@janmarkuslanger/powerhouse/core";
+import type { BlockRegistry } from "@janmarkuslanger/astro-strapi-platform/core";
 import { beforeAll, describe, expect, it } from "vitest";
 import BlockRenderer from "../../../src/astro/BlockRenderer.astro";
 import Echo from "./Echo.astro";

@@ -14,7 +14,7 @@ name: Release
 # Auth: trusted publishing (OIDC, id-token below), no stored token.
 # - It can only be configured for a package that exists on npm, so the very
 #   first version is published once by hand, with 2FA: on a clean main,
-#   `npm ci && npm test && npm publish --workspace packages/powerhouse --access public`.
+#   `npm ci && npm test && npm publish --workspace packages/astro-strapi-platform --access public`.
 # - Then on npmjs.com: package Settings → Trusted Publisher → GitHub Actions,
 #   this repository, workflow release.yml; and Publishing access → require
 #   2FA and disallow tokens. Push the version tag afterwards; this workflow
@@ -29,7 +29,7 @@ permissions:
   id-token: write # trusted publishing + provenance
 
 env:
-  PACKAGES: packages/powerhouse
+  PACKAGES: packages/astro-strapi-platform
 
 jobs:
   publish:

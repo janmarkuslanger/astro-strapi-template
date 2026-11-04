@@ -1,5 +1,5 @@
 {
-  "name": "@janmarkuslanger/powerhouse",
+  "name": "@janmarkuslanger/astro-strapi-platform",
   "version": "0.1.0",
   "description": "Astro + Strapi platform: domain model and block contract, Strapi adapter, Astro rendering and consent, Strapi schemas and bootstrap helpers.",
   "license": "MIT",
@@ -23,5 +23,5 @@
   "peerDependenciesMeta": { "astro": { "optional": true }, "@strapi/strapi": { "optional": true } },
   "devDependencies": { "typescript": "^5.6.3" },
   "publishConfig": { "access": "public" },
-  "repository": { "type": "git", "url": "git+https://github.com/janmarkuslanger/astro-strapi-template.git", "directory": "packages/powerhouse" }
+  "repository": { "type": "git", "url": "git+https://github.com/janmarkuslanger/astro-strapi-template.git", "directory": "packages/astro-strapi-platform" }
 }

@@ -5,7 +5,7 @@ import {
   type BaseBlock,
   type BlockRegistry,
   type CmsRepository,
-} from "@janmarkuslanger/powerhouse/core";
+} from "@janmarkuslanger/astro-strapi-platform/core";
 
 /**
  * Route logic shared by every site. A site's route file stays a typed

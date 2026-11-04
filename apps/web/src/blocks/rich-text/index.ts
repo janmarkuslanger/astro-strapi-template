@@ -1,4 +1,4 @@
-import { defineBlock } from "@janmarkuslanger/powerhouse/strapi";
+import { defineBlock } from "@janmarkuslanger/astro-strapi-platform/strapi";
 import RichText from "./RichText.astro";
 
 /**

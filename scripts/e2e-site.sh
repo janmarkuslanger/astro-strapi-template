@@ -24,7 +24,7 @@ step() { echo "==> $*"; }
 step "Packing the platform package"
 mkdir -p "$TARBALLS"
 (cd "$REPO" && npm run build:packages >/dev/null)
-(cd "$REPO" && npm pack --workspace packages/powerhouse --pack-destination "$TARBALLS" >/dev/null)
+(cd "$REPO" && npm pack --workspace packages/astro-strapi-platform --pack-destination "$TARBALLS" >/dev/null)
 
 step "Copying the template (tracked and new files, as 'Use this template' would)"
 mkdir -p "$SITE"
@@ -62,8 +62,8 @@ NODE
 
 step "npm install"
 (cd "$SITE" && rm -f package-lock.json && npm install --no-audit --no-fund >/dev/null)
-if [ -L "$SITE/node_modules/@janmarkuslanger/powerhouse" ]; then
-  echo "powerhouse is a symlink — the site uses local sources, not the package." >&2
+if [ -L "$SITE/node_modules/@janmarkuslanger/astro-strapi-platform" ]; then
+  echo "astro-strapi-platform is a symlink — the site uses local sources, not the package." >&2
   exit 1
 fi
 

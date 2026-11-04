@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { robotsTxtRoute } from "@janmarkuslanger/powerhouse/astro";
+import { robotsTxtRoute } from "@janmarkuslanger/astro-strapi-platform/astro";
 
 /**
  * AI crawlers are allowed on purpose — the site wants to be found by
