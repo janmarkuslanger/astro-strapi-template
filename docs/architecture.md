@@ -145,7 +145,18 @@ Nested relations or media deeper than one level need an explicit `cms.populate`,
   - `PUBLIC_ACTIONS` (next to `PLATFORM_PUBLIC_ACTIONS`), **only if the frontend reads it**. Never visitor-created data.
   - `WATCHED` if changes should rebuild the site
   - a seed step, in dependency order
-- Repository method + adapter implementation if pages read it
+- If pages read it: a method on `CmsRepository` in `apps/web/src/lib/cms/types.ts`, implemented in `client.ts` with `strapi.get(path)` (token, retry) and `strapi.context` (`image` with the public media URL, `markdown`). The adapter package stays untouched.
+
+## Extending a platform type
+
+A new field on `page` or `global`, end to end:
+
+1. **CMS**: `apps/cms/schema-extensions/page.json` → `{ "attributes": { "subtitle": { "type": "string" } } }` (see *Platform schemas*).
+2. **Type**: `PageExtension = { subtitle?: string }` in `apps/web/src/lib/cms/types.ts`. From here on `client.ts` does not compile until step 3 is done.
+3. **Mapping** in `client.ts`: `page: { map: (raw) => ({ subtitle: raw.subtitle ?? undefined }) }`. Media, components and relations also need `populate`, e.g. `"populate[hero]=true"`.
+4. Pages read `page.subtitle`. Platform fields cannot be replaced: the adapter writes them after the site's.
+
+`global` works the same with `GlobalExtension` and the `global` option.
 
 ## Mechanisms
 

@@ -183,3 +183,72 @@ describe("retries", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("site extensions", () => {
+  interface PageExtra {
+    subtitle: string;
+  }
+  interface GlobalExtra {
+    phone: string;
+  }
+
+  const extended = () =>
+    new StrapiCmsAdapter<TestBlock, PageExtra, GlobalExtra>({
+      url: URL_BUILD,
+      mediaUrl: URL_PUBLIC,
+      blocks,
+      page: { populate: "populate[hero]=true", map: (raw) => ({ subtitle: raw.subtitle ?? "" }) },
+      global: { map: (raw) => ({ phone: raw.phone ?? "" }) },
+    });
+
+  beforeEach(() => {
+    serve({
+      "/api/pages": () => json({ data: [{ slug: "a", title: "A", subtitle: "Sub" }] }),
+      "/api/shared-blocks": () => json({ data: [] }),
+      "/api/global": () => json({ data: { siteName: "Acme", phone: "123" } }),
+    });
+  });
+
+  it("populates and maps the site's page fields", async () => {
+    const page = await extended().getPage("a");
+    expect(page?.subtitle).toBe("Sub");
+    expect(requestedUrls()[0]).toContain("populate[hero]=true");
+    expect((await extended().listPages())[0].subtitle).toBe("Sub");
+  });
+
+  it("maps the site's global fields", async () => {
+    expect((await extended().getGlobal()).phone).toBe("123");
+  });
+
+  it("requires a mapping once the site declares fields", () => {
+    // @ts-expect-error — PageExtra declared, `page` missing
+    new StrapiCmsAdapter<TestBlock, PageExtra>({ url: URL_BUILD, blocks });
+    // @ts-expect-error — also when every declared field is optional
+    new StrapiCmsAdapter<TestBlock, { subtitle?: string }>({ url: URL_BUILD, blocks });
+    // No fields declared: no mapping needed.
+    new StrapiCmsAdapter<TestBlock>({ url: URL_BUILD, blocks });
+  });
+});
+
+describe("get and context, for the site's own content types", () => {
+  it("sends the token and retries a gateway error", async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    serve({ "/api/posts": () => (++calls === 1 ? json({}, 502) : json({ data: [{ title: "P" }] })) });
+    const result = adapter({ token: "t" }).get("/api/posts");
+    await vi.runAllTimersAsync();
+    expect((await result).data).toEqual([{ title: "P" }]);
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({ headers: { Authorization: "Bearer t" } });
+  });
+
+  it("fails with the path on a real error", async () => {
+    serve({ "/api/posts": () => json({}, 404) });
+    await expect(adapter().get("/api/posts")).rejects.toThrow("404 Error (/api/posts)");
+  });
+
+  it("maps media against the public URL", () => {
+    expect(adapter({ mediaUrl: URL_PUBLIC }).context.image({ url: "/uploads/p.jpg" })?.src).toBe(
+      `${URL_PUBLIC}/uploads/p.jpg`
+    );
+  });
+});

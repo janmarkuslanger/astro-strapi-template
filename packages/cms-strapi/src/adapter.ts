@@ -7,15 +7,18 @@ import type {
 import {
   blockPopulate,
   mapBlocks,
+  mapContext,
   mapGlobal,
   mapPage,
   type BlockResolver,
+  type MapContext,
+  type StrapiExtension,
   type StrapiBlockMapping,
   type StrapiBlockMappings,
   type StrapiBlockRegistry,
 } from "./mapper.js";
 
-export interface StrapiCmsAdapterOptions<B extends BaseBlock> {
+interface BaseOptions<B extends BaseBlock> {
   /**
    * Where THIS process fetches from at build time. May be 127.0.0.1 when
    * building on the CMS host — never localhost (IPv6, see CLAUDE.md §4).
@@ -33,12 +36,33 @@ export interface StrapiCmsAdapterOptions<B extends BaseBlock> {
   blocks: StrapiBlockRegistry<B>;
 }
 
-export class StrapiCmsAdapter<B extends BaseBlock = BaseBlock>
-  implements CmsRepository<B>
+/**
+ * Required as soon as the site declares fields `X`, optional ones included —
+ * a page type promising a field nobody maps would compile and then render
+ * `undefined`.
+ */
+type ExtensionOption<K extends string, X extends object> = [keyof X] extends [never]
+  ? { [key in K]?: StrapiExtension<X> }
+  : { [key in K]: StrapiExtension<X> };
+
+export type StrapiCmsAdapterOptions<
+  B extends BaseBlock,
+  P extends object = {},
+  G extends object = {},
+> = BaseOptions<B> & ExtensionOption<"page", P> & ExtensionOption<"global", G>;
+
+export class StrapiCmsAdapter<
+  B extends BaseBlock = BaseBlock,
+  P extends object = {},
+  G extends object = {},
+> implements CmsRepository<B, P, G>
 {
   private readonly url: string;
   private readonly token: string | undefined;
   private readonly mediaUrl: string;
+  private readonly pageExtension: StrapiExtension<P> | undefined;
+  private readonly globalExtension: StrapiExtension<G> | undefined;
+  private readonly globalPopulate: string;
   /** Strapi side of every registered block, keyed by domain type. */
   private readonly blocks: StrapiBlockMappings;
 
@@ -59,10 +83,23 @@ export class StrapiCmsAdapter<B extends BaseBlock = BaseBlock>
    */
   private readonly pagePopulate: string;
 
-  constructor(options: StrapiCmsAdapterOptions<B>) {
+  /**
+   * `image` and `markdown` bound to the public media URL, for a site mapping
+   * its own content types (see `get`).
+   */
+  readonly context: MapContext;
+
+  constructor(options: StrapiCmsAdapterOptions<B, P, G>) {
     this.url = options.url;
     this.token = options.token;
     this.mediaUrl = options.mediaUrl || options.url;
+    this.context = mapContext(this.mediaUrl);
+    const extensions = options as {
+      page?: StrapiExtension<P>;
+      global?: StrapiExtension<G>;
+    };
+    this.pageExtension = extensions.page;
+    this.globalExtension = extensions.global;
     // Every value of a StrapiBlockRegistry has a Strapi `cms`; TypeScript
     // cannot see through a mapped type over a generic union, so say it once.
     const definitions = Object.entries(options.blocks) as [
@@ -73,7 +110,10 @@ export class StrapiCmsAdapter<B extends BaseBlock = BaseBlock>
       definitions.map(([type, definition]) => [type, definition.cms])
     );
     this.populate = blockPopulate(this.blocks);
-    this.pagePopulate = `populate[seo]=true&${this.populate}`;
+    const extra = (extension?: StrapiExtension<object>) =>
+      extension?.populate ? `&${extension.populate}` : "";
+    this.pagePopulate = `populate[seo]=true&${this.populate}${extra(this.pageExtension)}`;
+    this.globalPopulate = `populate[navigation]=true&populate[footerLinks]=true${extra(this.globalExtension)}`;
   }
 
   /**
@@ -108,7 +148,15 @@ export class StrapiCmsAdapter<B extends BaseBlock = BaseBlock>
     return res;
   }
 
-  private async fetchJson(path: string): Promise<any> {
+  /**
+   * GET against the Strapi REST API, with the token and the retry above. For
+   * a site's own content types: the site maps the response itself, using
+   * `context` for media and Markdown.
+   *
+   *   const json = await strapi.get("/api/posts?populate[cover]=true");
+   *   json.data.map((e) => ({ title: e.title, cover: strapi.context.image(e.cover) }));
+   */
+  async get(path: string): Promise<any> {
     const headers: Record<string, string> = {};
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
 
@@ -131,7 +179,7 @@ export class StrapiCmsAdapter<B extends BaseBlock = BaseBlock>
    */
   private async blockResolver(): Promise<BlockResolver> {
     if (!this.sharedBlocks) {
-      const json = await this.fetchJson(`/api/shared-blocks?${this.populate}`);
+      const json = await this.get(`/api/shared-blocks?${this.populate}`);
       this.sharedBlocks = new Map(
         (json.data ?? []).map((entry: any) => [
           String(entry.documentId ?? entry.id),
@@ -143,25 +191,24 @@ export class StrapiCmsAdapter<B extends BaseBlock = BaseBlock>
     return (id: string) => cache.get(id) ?? [];
   }
 
-  async getGlobal(): Promise<SiteGlobal> {
-    const json = await this.fetchJson(
-      "/api/global?populate[navigation]=true&populate[footerLinks]=true"
-    );
-    return mapGlobal(json.data ?? {});
+  async getGlobal(): Promise<SiteGlobal<G>> {
+    const json = await this.get(`/api/global?${this.globalPopulate}`);
+    return mapGlobal(json.data ?? {}, this.mediaUrl, this.globalExtension);
   }
 
   // Mapped blocks are B by construction: only registered types survive the
   // mapper. The cast states that; it cannot be checked across the CMS boundary.
-  async listPages(): Promise<Page<B>[]> {
-    const json = await this.fetchJson(`/api/pages?${this.pagePopulate}`);
+  async listPages(): Promise<Page<B, P>[]> {
+    const json = await this.get(`/api/pages?${this.pagePopulate}`);
     const resolve = await this.blockResolver();
     return (json.data ?? []).map(
-      (e: any) => mapPage(e, this.mediaUrl, this.blocks, resolve) as Page<B>
+      (e: any) =>
+        mapPage(e, this.mediaUrl, this.blocks, resolve, this.pageExtension) as Page<B, P>
     );
   }
 
-  async getPage(slug: string): Promise<Page<B> | null> {
-    const json = await this.fetchJson(
+  async getPage(slug: string): Promise<Page<B, P> | null> {
+    const json = await this.get(
       `/api/pages?filters[slug][$eq]=${encodeURIComponent(slug)}&${this.pagePopulate}`
     );
     const entry = (json.data ?? [])[0];
@@ -170,7 +217,8 @@ export class StrapiCmsAdapter<B extends BaseBlock = BaseBlock>
       entry,
       this.mediaUrl,
       this.blocks,
-      await this.blockResolver()
-    ) as Page<B>;
+      await this.blockResolver(),
+      this.pageExtension
+    ) as Page<B, P>;
   }
 }

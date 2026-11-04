@@ -24,6 +24,22 @@ export interface MapContext {
   markdown(value: unknown): string;
 }
 
+/**
+ * Site fields on a platform type (`page`, `global`), added in Strapi through
+ * `schema-extensions/`. The adapter fetches them with `populate` and merges
+ * `map`'s result under the platform fields.
+ */
+export interface StrapiExtension<X extends object> {
+  /**
+   * Extra populate parameters, e.g. `populate[hero]=true`. Plain fields
+   * (strings, numbers, booleans) need none; media, components and relations
+   * arrive empty without it.
+   */
+  populate?: string;
+  /** Raw Strapi entry → the site's fields. */
+  map(raw: any, ctx: MapContext): X;
+}
+
 /** Strapi side of a block definition — the `cms` field of `defineBlock`. */
 export interface StrapiBlockMapping<B extends BaseBlock> {
   /** Strapi component id, e.g. "blocks.hero". */
@@ -88,6 +104,11 @@ function md(value: unknown): string {
   return value ? (marked.parse(String(value), { async: false }) as string) : "";
 }
 
+/** The helpers handed to every `map`, bound to the public media URL. */
+export function mapContext(mediaUrl: string): MapContext {
+  return { image: (value) => mapImage(value, mediaUrl), markdown: md };
+}
+
 function mapSeo(raw: any, fallbackTitle: string): Seo {
   return {
     title: raw?.title ?? fallbackTitle,
@@ -108,10 +129,7 @@ export function mapBlocks(
   mappings: StrapiBlockMappings,
   resolve?: BlockResolver
 ): BaseBlock[] {
-  const ctx: MapContext = {
-    image: (value) => mapImage(value, mediaUrl),
-    markdown: md,
-  };
+  const ctx = mapContext(mediaUrl);
   const byComponent = new Map(
     Object.entries(mappings).map(([type, m]) => [m.component, { type, m }])
   );
@@ -134,13 +152,17 @@ export function mapBlocks(
   return blocks;
 }
 
-export function mapPage(
+// Site fields first: a platform field always wins, so an extension can add
+// to a page but never change what the platform's own code relies on.
+export function mapPage<X extends object = {}>(
   entry: any,
   mediaUrl: string,
   mappings: StrapiBlockMappings,
-  resolve?: BlockResolver
-): Page {
+  resolve?: BlockResolver,
+  extension?: StrapiExtension<X>
+): Page<BaseBlock, X> {
   return {
+    ...(extension?.map(entry, mapContext(mediaUrl)) as X),
     slug: entry.slug ?? "",
     title: entry.title ?? "",
     seo: mapSeo(entry.seo, entry.title ?? ""),
@@ -148,11 +170,16 @@ export function mapPage(
   };
 }
 
-export function mapGlobal(entry: any): SiteGlobal {
+export function mapGlobal<X extends object = {}>(
+  entry: any,
+  mediaUrl: string,
+  extension?: StrapiExtension<X>
+): SiteGlobal<X> {
   const links = (raw: any[]): Link[] =>
     (raw ?? []).map(mapLink).filter(Boolean) as Link[];
 
   return {
+    ...(extension?.map(entry, mapContext(mediaUrl)) as X),
     siteName: entry.siteName ?? "",
     claim: entry.claim ?? undefined,
     email: entry.email ?? "",
