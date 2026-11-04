@@ -13,11 +13,76 @@ Whatever you pick, the four constraints from [`CLAUDE.md`](../CLAUDE.md) §8 hol
 
 ---
 
+## Who owns what
+
+Hosters differ per customer. The platform owns what holds on every hoster;
+the site owns where things go.
+
+| | Platform (reusable workflows, by tag) | Site (`deploy.yml`, `content-rebuild.yml`) |
+| --- | --- | --- |
+| Website | `build-web.yml`: build against the CMS, verify (public config present, no `127.0.0.1`), hand on the artifact `web-dist` | the `ship` job: put `web-dist` where it is served |
+| CMS | `deploy-cms-ssh.yml` for any SSH server: change filter, runner build, upload, install only on a lockfile change, shared lock, health check | which recipe, and `restart-command` (`pm2 reload …`, `sudo systemctl restart …`, …) — or no job on a managed host |
+| Order | `web` waits for `cms` and never runs after a failed CMS deploy | keep `needs: cms` unless the CMS job is gone |
+
+`build-web.yml` stays the same everywhere; the `cms` and `ship` jobs are the
+two places a site plugs in its hoster. Keep `deploy.yml` and
+`content-rebuild.yml` in step: both ship.
+
+### Ship recipes (the `ship` job)
+
+**Any server over SSH** — what the template uses:
+
+```yaml
+  ship:
+    needs: web
+    uses: janmarkuslanger/astro-strapi-template/.github/workflows/ship-web-ssh.yml@vX.Y.Z
+    with: { web-root: "${{ vars.WEB_ROOT }}", site-url: "${{ vars.SITE_URL }}" }
+    secrets: { SSH_PRIVATE_KEY: …, SSH_KNOWN_HOSTS: …, SSH_USER: …, SSH_HOST: … }
+```
+
+**GitHub Pages:**
+
+```yaml
+  ship:
+    needs: web
+    runs-on: ubuntu-latest
+    permissions: { pages: write, id-token: write }
+    environment: { name: github-pages, url: "${{ steps.pages.outputs.page_url }}" }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: web-dist, path: web-dist }
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: web-dist }
+      - id: pages
+        uses: actions/deploy-pages@v4
+```
+
+**Object storage / CDN** (S3, R2, …): download `web-dist` as above, then the
+provider's sync command, e.g. `aws s3 sync web-dist s3://<bucket> --delete`.
+
+**Vercel / Netlify / Cloudflare Pages building by themselves:** no `ship`
+job. `web` then only verifies; the host's build is a second build path and
+must not set `PUBLIC_*` (Target B below). Alternatively deploy `web-dist`
+with the host's CLI from a `ship` job, so there is only one build.
+
+These recipes other than SSH are starting points, not tested in this repo.
+
+### CMS recipes (the `cms` job)
+
+- **Server over SSH:** `deploy-cms-ssh.yml` with the site's `restart-command`,
+  e.g. `pm2 reload cms`, `sudo systemctl restart cms`,
+  `docker compose up -d --build cms`. It runs in `app-dir` on the server.
+- **Managed host building from the repo** (Strapi Cloud, Render, …): delete the
+  `cms` job and `needs: cms`. The CMS's `prebuild` still generates the platform
+  schemas there.
+
+---
+
 ## Choosing a target
 
 | | Frontend | CMS | Notes |
 | --- | --- | --- | --- |
-| **Single vServer** | nginx serves a folder | systemd + Postgres | Cheapest, most control. Read the small-box warnings below. |
+| **Single vServer** | nginx serves a folder | systemd or pm2 + Postgres | Cheapest, most control. Read the small-box warnings below. |
 | **Vercel / Netlify / Cloudflare Pages** | platform build + CDN | still needs a host | Easiest frontend, but the CMS needs a home anyway. Check the licence terms for commercial use. |
 | **Static host + managed CMS** | any object storage / CDN | Strapi Cloud | Least ops, highest running cost. |
 
@@ -44,7 +109,7 @@ per target. Everything the visitor sees comes from the committed
 
 ---
 
-## Target A — single vServer (nginx + systemd)
+## Target A — single vServer (nginx + systemd or pm2)
 
 Both halves on one machine. The frontend is a folder; nginx serves it directly.
 
@@ -67,7 +132,7 @@ CI round trip, no token. Hook into Strapi's content events, debounce a few
 seconds, spawn a detached build script.
 
 That script builds from the repo copy in `app/`, which only the CMS deploy job
-updates. The path filter in `deploy-cms.yml` therefore runs that job for every push
+updates. The path filter in `deploy-cms-ssh.yml` therefore runs that job for every push
 except docs-only ones, frontend changes included. Narrow it and a frontend-only
 push goes live, then gets reverted by the next publish, which rebuilds from the
 old source with no error.

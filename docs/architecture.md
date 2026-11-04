@@ -55,7 +55,7 @@ Everything else (posts, heroes, forms, …) is per project.
 | cms-adapter | `/strapi` | Fetching, retry, reference resolution, media URLs, `defineBlock` | core |
 | frontend-integration | `/astro`, `/astro/BlockRenderer.astro` | Block rendering, consent store + banner/gate behaviour, analytics, route logic | core |
 | cms-plugin | `/strapi-kit` (CommonJS, for the Strapi server) | Platform schemas, CMS config, permissions, one-time seeding, rebuild trigger | — |
-| deploy | `.github/workflows/deploy-*.yml` | Reusable CMS and site deploys | — |
+| deploy | `.github/workflows/build-web.yml` + recipes `ship-web-ssh.yml`, `deploy-cms-ssh.yml` | Build and verify the site (every hoster); ship/restart recipes for SSH hosts. Which hoster is the site's `deploy.yml` | — |
 | blocks | — *(not yet)* | Library of reusable blocks | core |
 | site | `apps/*` | Config, design, copy, content, blocks, registry | all of the above |
 
@@ -97,7 +97,7 @@ CMS-agnostic.
 - Prerelease tag (`vX.Y.Z-rc.1`) → npm dist-tag `next`; stable → `latest`.
 - A failed release is rerun on the same tag; versions already on npm are skipped.
 - Auth: trusted publishing (OIDC), no stored token. It can only be set up for a package that exists, so the very first version is published once by hand; steps in the header of `release.yml`.
-- Sites pin that version in `package.json` **and** in `uses: …/deploy-*.yml@vX.Y.Z`. Updating a site = changing one number in both places.
+- Sites pin that version in `package.json` **and** in `uses: …/<workflow>.yml@vX.Y.Z`. Updating a site = changing one number in both places.
 - Roll out to a pilot site first, then to the rest. Automated update PRs (Renovate) cover both.
 - Breaking change → migration note in the release; codemod when mechanical.
 

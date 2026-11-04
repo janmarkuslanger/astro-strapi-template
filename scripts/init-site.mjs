@@ -14,13 +14,18 @@ import { fileURLToPath } from "node:url";
 export const PLATFORM_REPO = "janmarkuslanger/astro-strapi-template";
 export const PLATFORM_PACKAGE = "@janmarkuslanger/powerhouse";
 
+/**
+ * Reusable workflows. A site calls them from the platform by tag and never
+ * keeps a copy, so they update with the version.
+ */
+export const REUSABLE_WORKFLOWS = ["build-web.yml", "ship-web-ssh.yml", "deploy-cms-ssh.yml"];
+
 /** Platform-only paths. Everything else belongs to the site. */
 export const PLATFORM_PATHS = [
   "packages/powerhouse",
   ".github/workflows/release.yml",
   ".github/workflows/site-e2e.yml",
-  ".github/workflows/deploy-cms.yml",
-  ".github/workflows/deploy-web.yml",
+  ...REUSABLE_WORKFLOWS.map((name) => `.github/workflows/${name}`),
   "scripts/set-version.mjs",
   "scripts/init-site.mjs",
   "scripts/e2e-site.sh",
@@ -86,9 +91,8 @@ export function sitePackageJson(pkg) {
  */
 export function tagWorkflowRefs(yaml, version) {
   return yaml
-    .replace(
-      /uses: \.\/\.github\/workflows\/(deploy-(?:cms|web)\.yml)/g,
-      `uses: ${PLATFORM_REPO}/.github/workflows/$1@v${version}`
+    .replace(/uses: \.\/\.github\/workflows\/([\w.-]+\.yml)/g, (line, name) =>
+      REUSABLE_WORKFLOWS.includes(name) ? `uses: ${PLATFORM_REPO}/.github/workflows/${name}@v${version}` : line
     )
     .replace(/^# \(this repo uses \.\/ paths because it is the platform repo itself\)\.\n/m, "");
 }

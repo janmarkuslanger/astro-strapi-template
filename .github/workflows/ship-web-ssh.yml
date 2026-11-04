@@ -1,0 +1,109 @@
+name: Ship frontend over SSH
+
+# One shipping recipe among several: puts the `web-dist` artifact from
+# build-web.yml onto a server over SSH (vServer, shared hosting with rsync).
+# A site on another hoster replaces this job in its deploy.yml with its own
+# (docs/deployment-targets.md).
+#
+#   ship:
+#     needs: web
+#     uses: janmarkuslanger/astro-strapi-template/.github/workflows/ship-web-ssh.yml@<tag>
+#
+# Must run in the same workflow run as build-web.yml: artifacts are per run.
+
+on:
+  workflow_call:
+    inputs:
+      web-root:
+        description: Web root on the server (releases/ + current symlink)
+        required: true
+        type: string
+      site-url:
+        description: Public site URL for the health check; empty skips it
+        required: false
+        type: string
+        default: ""
+    secrets:
+      SSH_PRIVATE_KEY: { required: true }
+      SSH_KNOWN_HOSTS: { required: true }
+      SSH_USER: { required: true }
+      SSH_HOST: { required: true }
+
+# Inputs reach scripts only through env. `${{ }}` inside `run:` is pasted into
+# the script text before the shell parses it.
+env:
+  DIST: web-dist
+  WEB_ROOT: ${{ inputs.web-root }}
+  SITE_URL: ${{ inputs.site-url }}
+  SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+
+jobs:
+  ship:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # `required: true` accepts "", and an unset repository variable is "".
+      # Without this the release lands in /releases and the switch runs in $HOME.
+      - name: Inputs must not be empty
+        run: |
+          if [ -z "$WEB_ROOT" ]; then
+            echo "::error::Input web-root is empty."
+            exit 1
+          fi
+
+      - name: Fetch the build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web-dist
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Upload as a new release and switch atomically
+        run: |
+          set -euo pipefail
+          # POSIX single quotes: the remote LOGIN shell parses this string before
+          # bash starts, and may be sh/dash — printf %q's $'…' would break there
+          # on a newline. Works for any content.
+          sq() { for a; do printf "'%s' " "$(printf '%s' "$a" | sed "s/'/'\\\\''/g")"; done; }
+          # One directory per run: a content rebuild carries the same commit as
+          # the deploy before it, so the sha alone would collide.
+          RELEASE="$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA::7}"
+          SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes"
+
+          $SSH "$SSH_TARGET" "mkdir -p $(sq "$WEB_ROOT/releases/$RELEASE")"
+
+          rsync -az --delete -e "$SSH" \
+            "$DIST/" "$SSH_TARGET:$WEB_ROOT/releases/$RELEASE/"
+
+          # Values travel as quoted positional arguments; the heredoc is quoted,
+          # so nothing inside it is expanded on the runner.
+          $SSH "$SSH_TARGET" \
+            "bash -euo pipefail -s -- $(sq "$WEB_ROOT" "$RELEASE")" <<'REMOTE'
+            cd "$1"
+            # Atomic: the web server follows the symlink per request, so no
+            # visitor ever sees a half-copied release.
+            ln -sfn "releases/$2" current.tmp
+            mv -Tf current.tmp current
+            # Keep five for a one-command rollback.
+            ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf
+          REMOTE
+
+      - name: Health check
+        if: inputs.site-url != ''
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL" || true)
+            [ "$code" = "200" ] && { echo "Site is responding."; exit 0; }
+            echo "Attempt $i: HTTP $code — waiting …"
+            sleep 5
+          done
+          echo "::error::Site did not respond within 50s."
+          exit 1

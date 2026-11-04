@@ -24,15 +24,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Same build and the same ship job as deploy.yml: keep them in step when a
+  # site changes its hoster.
   web:
-    uses: ./.github/workflows/deploy-web.yml
+    uses: ./.github/workflows/build-web.yml
     with:
       strapi-url: ${{ vars.STRAPI_URL }}
-      deploy-target: ${{ vars.DEPLOY_TARGET }}
+    secrets:
+      STRAPI_TOKEN: ${{ secrets.STRAPI_TOKEN }}
+
+  ship:
+    needs: web
+    if: vars.WEB_TARGET == 'ssh'
+    uses: ./.github/workflows/ship-web-ssh.yml
+    with:
       web-root: ${{ vars.WEB_ROOT }}
       site-url: ${{ vars.SITE_URL }}
     secrets:
-      STRAPI_TOKEN: ${{ secrets.STRAPI_TOKEN }}
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
       SSH_USER: ${{ secrets.SSH_USER }}

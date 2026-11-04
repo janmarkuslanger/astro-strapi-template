@@ -1,0 +1,109 @@
+name: Build frontend
+
+# Builds the static site against the live CMS, verifies it and hands it on as
+# the artifact `web-dist`. It ships nothing: where a site goes differs per
+# customer and hoster, so shipping is a job in the site's own deploy.yml —
+# ship-web-ssh.yml for a server over SSH, or a recipe from
+# docs/deployment-targets.md (GitHub Pages, S3, …).
+#
+# REUSABLE ACROSS REPOSITORIES: sites call it as
+#   uses: janmarkuslanger/astro-strapi-template/.github/workflows/build-web.yml@<tag>
+# and pass every value explicitly (secrets declared below; `secrets: inherit`
+# only works within one organization). It checks out and builds the CALLER's
+# repository. The same steps run after a code deploy and after a content
+# rebuild, so both build paths produce the same site (CLAUDE.md §3).
+
+on:
+  workflow_call:
+    inputs:
+      strapi-url:
+        description: Build-time CMS address (never reaches the browser)
+        required: true
+        type: string
+    outputs:
+      artifact:
+        description: Name of the artifact holding apps/web/dist
+        value: ${{ jobs.build.outputs.artifact }}
+    secrets:
+      STRAPI_TOKEN: { required: false }
+
+env:
+  # Where the built site ends up.
+  DIST: apps/web/dist
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      artifact: web-dist
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # A site created from the template carries the platform's package
+      # sources until `npm run init-site`; npm would build with those stale
+      # local copies instead of the published packages.
+      - name: Site must be initialized
+        run: |
+          if [ "$GITHUB_REPOSITORY" != "janmarkuslanger/astro-strapi-template" ] && [ -d packages/powerhouse ]; then
+            echo "::error::Platform package sources found. Run 'npm run init-site' once, then npm install and commit."
+            exit 1
+          fi
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # NOTE: no PUBLIC_* variables here, deliberately.
+      #
+      # Everything the visitor sees comes from the committed
+      # apps/web/.env.production, which Astro loads on every build machine —
+      # that is what keeps CI and any other build path identical. `${{ vars.X }}`
+      # yields an empty string when a variable is unset, and an
+      # exported-but-empty value silently OVERRIDES the file. See CLAUDE.md §3.
+      #
+      # STRAPI_URL is build-time only and never reaches the browser, so it may
+      # legitimately differ per build path.
+      - name: Build the site against the CMS
+        env:
+          STRAPI_URL: ${{ inputs.strapi-url }}
+          STRAPI_TOKEN: ${{ secrets.STRAPI_TOKEN }}
+        run: npm run build:web
+
+      # A site that lost its consent banner still returns HTTP 200 — the only
+      # way to notice is to assert before shipping.
+      - name: Verify the build carries its public config
+        run: |
+          set -euo pipefail
+          ga_id="$(sed -n 's/^PUBLIC_GA_MEASUREMENT_ID=//p' apps/web/.env.production | tr -d '"'"'"' \r')"
+          if [ -n "$ga_id" ]; then
+            if grep -rqF "$ga_id" "$DIST"; then
+              echo "OK: measurement id present in the build."
+            else
+              echo "::error::Build does not contain $ga_id — the consent banner is missing too. Not handing it on."
+              exit 1
+            fi
+          else
+            echo "No measurement id configured — skipping the check."
+          fi
+          if grep -rq "127\.0\.0\.1" "$DIST"; then
+            echo "::error::Build contains 127.0.0.1 — visitors cannot load that. Check PUBLIC_STRAPI_URL."
+            exit 1
+          fi
+
+      # Hidden files included: a site may ship .well-known/ or similar.
+      - name: Hand the build on
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
