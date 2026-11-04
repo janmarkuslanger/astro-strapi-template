@@ -45,11 +45,14 @@ export interface StrapiBlockMapping<B extends BaseBlock> {
   /** Strapi component id, e.g. "blocks.hero". */
   component: string;
   /**
-   * Populate fragment after `populate[blocks][on][<component>]`. Defaults to
-   * `[populate]=*` (one level). Blocks with deeper nesting (items with images,
-   * links in a list) must spell it out, or those fields arrive empty.
+   * Populate fragment(s) after `populate[<zone>][on][<component>]`. Defaults
+   * to `[populate]=*` (one level). Blocks with deeper nesting (items with
+   * images, links in a list) must spell it out, or those fields arrive empty;
+   * several nested fields need one fragment each:
+   *
+   *   populate: ["[populate][items][populate]=link", "[populate][image]=true"]
    */
-  populate?: string;
+  populate?: string | string[];
   /** Strapi component → domain block, without `type` (added by the mapper). */
   map(raw: any, ctx: MapContext): Omit<B, "type">;
 }
@@ -65,13 +68,16 @@ export type StrapiBlockRegistry<B extends BaseBlock> = {
 /** Strapi mappings keyed by domain block type. */
 export type StrapiBlockMappings = Record<string, StrapiBlockMapping<BaseBlock>>;
 
-/** Populate query for a dynamic zone holding these blocks plus references. */
-export function blockPopulate(mappings: StrapiBlockMappings): string {
+/**
+ * Populate query for a dynamic zone holding these blocks plus references.
+ * `zone` is the dynamic zone's field name — `blocks` on the platform types.
+ */
+export function blockPopulate(mappings: StrapiBlockMappings, zone = "blocks"): string {
   return [
-    ...Object.values(mappings).map(
-      (m) => `populate[blocks][on][${m.component}]${m.populate ?? "[populate]=*"}`
+    ...Object.values(mappings).flatMap((m) =>
+      [m.populate ?? "[populate]=*"].flat().map((part) => `populate[${zone}][on][${m.component}]${part}`)
     ),
-    `populate[blocks][on][${REFERENCE_COMPONENT}][populate]=block`,
+    `populate[${zone}][on][${REFERENCE_COMPONENT}][populate]=block`,
   ].join("&");
 }
 
@@ -111,7 +117,8 @@ export function mapContext(mediaUrl: string): MapContext {
 
 function mapSeo(raw: any, fallbackTitle: string): Seo {
   return {
-    title: raw?.title ?? fallbackTitle,
+    // `||`: an emptied title field in the panel arrives as "", not null.
+    title: raw?.title || fallbackTitle,
     description: raw?.description ?? "",
   };
 }

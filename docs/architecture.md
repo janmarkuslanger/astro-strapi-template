@@ -164,7 +164,10 @@ Nested relations or media deeper than one level need an explicit `cms.populate`,
   - `PUBLIC_ACTIONS` (next to `PLATFORM_PUBLIC_ACTIONS`), **only if the frontend reads it**. Never visitor-created data.
   - `WATCHED` if changes should rebuild the site
   - a seed step, in dependency order
-- If pages read it: a method on `CmsRepository` in `apps/web/src/lib/cms/types.ts`, implemented in `client.ts` with `strapi.get(path)` (token, retry) and `strapi.context` (`image` with the public media URL, `markdown`). The adapter package stays untouched.
+- If pages read it: a method on `CmsRepository` in `apps/web/src/lib/cms/types.ts`, implemented in `client.ts` with the adapter's helpers. The adapter package stays untouched.
+  - `strapi.get(path)` — one request with token and retry; `strapi.getAll(path)` — every entry, page by page (Strapi returns 25 by default).
+  - `strapi.context` — `image` (public media URL) and `markdown`.
+  - A dynamic zone of registered blocks (e.g. blocks under a blog post): fetch with `strapi.populateBlocks("blocks")`, map with `await strapi.mapBlocks(entry.blocks)` — references resolve as on pages.
 
 ## Extending a platform type
 
