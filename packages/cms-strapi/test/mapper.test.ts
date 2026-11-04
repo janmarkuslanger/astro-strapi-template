@@ -139,7 +139,7 @@ describe("mapGlobal", () => {
       email: "a@b.test",
       navigation: [{ label: "About", href: "/about/" }, { label: "Broken" }],
       footerLinks: [{ href: "/imprint/" }],
-    });
+    }, MEDIA);
     expect(global).toEqual({
       siteName: "Acme",
       claim: undefined,
@@ -150,6 +150,25 @@ describe("mapGlobal", () => {
   });
 
   it("tolerates an empty entry", () => {
-    expect(mapGlobal({})).toEqual({ siteName: "", claim: undefined, email: "", navigation: [], footerLinks: [] });
+    expect(mapGlobal({}, MEDIA)).toEqual({ siteName: "", claim: undefined, email: "", navigation: [], footerLinks: [] });
+  });
+});
+
+describe("site extensions", () => {
+  it("adds the site's page fields, with the public media URL in its context", () => {
+    const page = mapPage({ slug: "a", title: "A", hero: { url: "/uploads/h.jpg" } }, MEDIA, mappings, undefined, {
+      map: (raw, ctx) => ({ hero: ctx.image(raw.hero) }),
+    });
+    expect(page.hero).toMatchObject({ src: `${MEDIA}/uploads/h.jpg` });
+    expect(page.slug).toBe("a");
+  });
+
+  it("never lets an extension replace a platform field", () => {
+    const page = mapPage({ slug: "a", title: "A" }, MEDIA, mappings, undefined, {
+      map: () => ({ title: "hijacked", extra: 1 }),
+    });
+    expect(page).toMatchObject({ title: "A", extra: 1 });
+    const global = mapGlobal({ siteName: "Acme" }, MEDIA, { map: () => ({ siteName: "x", phone: "1" }) });
+    expect(global).toMatchObject({ siteName: "Acme", phone: "1" });
   });
 });

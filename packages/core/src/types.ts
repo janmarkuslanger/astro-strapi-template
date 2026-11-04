@@ -29,17 +29,29 @@ export interface BaseBlock {
   type: string;
 }
 
-export interface Page<B extends BaseBlock = BaseBlock> {
+/** The fields every site's pages have; the platform owns them. */
+export interface PageFields<B extends BaseBlock = BaseBlock> {
   slug: string;
   title: string;
   seo: Seo;
   blocks: B[];
 }
 
-export interface SiteGlobal {
+/**
+ * A page as a site sees it: the platform fields plus `X`, the fields the site
+ * added to its page schema (`schema-extensions/page.json`). `X` cannot
+ * replace a platform field — the adapter writes those last.
+ */
+export type Page<B extends BaseBlock = BaseBlock, X extends object = {}> = PageFields<B> & X;
+
+/** The fields every site's global settings have; the platform owns them. */
+export interface SiteGlobalFields {
   siteName: string;
   claim?: string;
   email: string;
   navigation: Link[];
   footerLinks: Link[];
 }
+
+/** Global settings plus the site's own fields, as for {@link Page}. */
+export type SiteGlobal<X extends object = {}> = SiteGlobalFields & X;
